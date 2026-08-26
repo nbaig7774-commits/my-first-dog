@@ -14,6 +14,11 @@ export default function DogProfile() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
+  const [subscriptionPlan, setSubscriptionPlan] =
+    useState("none");
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState("inactive");
+
   useEffect(() => {
     async function loadDog() {
       const {
@@ -25,6 +30,24 @@ export default function DogProfile() {
         return;
       }
 
+      // Load subscription
+      const profileResult = await sb
+        .from("profiles")
+        .select("subscription_plan, subscription_status")
+        .eq("id", user.id)
+        .single();
+
+      if (!profileResult.error) {
+        setSubscriptionPlan(
+          profileResult.data?.subscription_plan || "none"
+        );
+
+        setSubscriptionStatus(
+          profileResult.data?.subscription_status || "inactive"
+        );
+      }
+
+      // Load dog
       const { data, error } = await sb
         .from("dogs")
         .select("*")
@@ -43,6 +66,10 @@ export default function DogProfile() {
 
     loadDog();
   }, [params.id]);
+
+  const isPremium =
+    subscriptionPlan === "premium" &&
+    subscriptionStatus === "active";
 
   if (loading) {
     return (
@@ -97,11 +124,14 @@ export default function DogProfile() {
 
         <section className="grid">
 
+          {/* BASIC INFORMATION */}
+
           <div className="card">
             <h2>Dog Information</h2>
 
             <p>
-              <strong>Name:</strong> {dog.name}
+              <strong>Name:</strong>{" "}
+              {dog.name}
             </p>
 
             <p>
@@ -109,48 +139,202 @@ export default function DogProfile() {
               {dog.breed || "Not set"}
             </p>
 
-            <p>
-              <strong>Age:</strong>{" "}
-              {dog.age_text || "Not set"}
-            </p>
+            {isPremium ? (
+              <>
+                <p>
+                  <strong>Birthday:</strong>{" "}
+                  {dog.date_of_birth || "Not set"}
+                </p>
 
-            <p>
-              <strong>Weight:</strong>{" "}
-              {dog.weight_text || "Not set"}
-            </p>
+                <p>
+                  <strong>Gender:</strong>{" "}
+                  {dog.gender || "Not set"}
+                </p>
 
-            <p>
-              <strong>Birthday:</strong>{" "}
-              {dog.birthday || "Not set"}
-            </p>
+                <p>
+                  <strong>Weight:</strong>{" "}
+                  {dog.weight
+                    ? `${dog.weight} kg`
+                    : "Not set"}
+                </p>
+
+                <p>
+                  <strong>Height:</strong>{" "}
+                  {dog.height
+                    ? `${dog.height} cm`
+                    : "Not set"}
+                </p>
+
+                <p>
+                  <strong>Color:</strong>{" "}
+                  {dog.color || "Not set"}
+                </p>
+
+                <p>
+                  <strong>Microchip:</strong>{" "}
+                  {dog.microchip_number || "Not set"}
+                </p>
+              </>
+            ) : (
+              <div className="card">
+                <h3>⭐ Premium Dog Profile</h3>
+
+                <p>
+                  🔒 Birthday
+                </p>
+
+                <p>
+                  🔒 Gender
+                </p>
+
+                <p>
+                  🔒 Weight
+                </p>
+
+                <p>
+                  🔒 Height
+                </p>
+
+                <p>
+                  🔒 Color
+                </p>
+
+                <p>
+                  🔒 Microchip number
+                </p>
+
+                <p className="muted">
+                  Unlock detailed information about
+                  your dog with Premium.
+                </p>
+
+                <button
+                  className="btn primary"
+                  onClick={() =>
+                    router.push("/pricing")
+                  }
+                >
+                  ⭐ Upgrade to Premium →
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* VETERINARIAN */}
 
           <div className="card">
             <h2>Veterinarian</h2>
 
-            <p>
-              <strong>Name:</strong>{" "}
-              {dog.vet_name || "Not set"}
-            </p>
+            {isPremium ? (
+              <>
+                <p>
+                  <strong>Name:</strong>{" "}
+                  {dog.vet_name || "Not set"}
+                </p>
 
-            <p>
-              <strong>Phone:</strong>{" "}
-              {dog.vet_phone || "Not set"}
-            </p>
+                <p>
+                  <strong>Phone:</strong>{" "}
+                  {dog.vet_phone || "Not set"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p>🔒 Veterinarian information</p>
+
+                <p className="muted">
+                  Available with Premium.
+                </p>
+
+                <button
+                  className="btn"
+                  onClick={() =>
+                    router.push("/pricing")
+                  }
+                >
+                  View Premium →
+                </button>
+              </>
+            )}
           </div>
 
         </section>
 
         <br />
 
-        <section className="grid">
+        {/* PREMIUM BONUS */}
 
-          {/* HEALTH */}
+        <section className="card">
+          <h2>🎁 Premium Bonus Features</h2>
+
+          <div className="grid">
+
+            <div className="card">
+              <h3>📧 Email Notifications</h3>
+
+              <p className="muted">
+                Get important dog-care reminders
+                delivered directly to your email.
+              </p>
+
+              <p>
+                🔔 Appointment reminders
+              </p>
+
+              <p>
+                💉 Vaccination reminders
+              </p>
+
+              <p>
+                💊 Medication reminders
+              </p>
+            </div>
+
+            <div className="card">
+              <h3>📱 Push Notifications</h3>
+
+              <p className="muted">
+                Receive timely alerts on your phone
+                for important dog-care events.
+              </p>
+
+              <p>
+                📅 Appointment alerts
+              </p>
+
+              <p>
+                💉 Vaccine alerts
+              </p>
+
+              <p>
+                💊 Medication alerts
+              </p>
+            </div>
+
+          </div>
+
+          {!isPremium && (
+            <button
+              className="btn primary"
+              onClick={() =>
+                router.push("/pricing")
+              }
+            >
+              ⭐ Unlock Premium →
+            </button>
+          )}
+        </section>
+
+        <br />
+
+        {/* APP FEATURES */}
+
+        <section className="grid">
 
           <div
             className="card"
             onClick={() =>
-              (window.location.href = `/health?dog=${dog.id}`)
+            (window.location.href =
+              `/health?dog=${dog.id}`)
             }
             style={{ cursor: "pointer" }}
           >
@@ -165,12 +349,11 @@ export default function DogProfile() {
             </span>
           </div>
 
-          {/* VACCINATIONS */}
-
           <div
             className="card"
             onClick={() =>
-              (window.location.href = `/vaccinations?dog=${dog.id}`)
+            (window.location.href =
+              `/vaccinations?dog=${dog.id}`)
             }
             style={{ cursor: "pointer" }}
           >
@@ -185,12 +368,11 @@ export default function DogProfile() {
             </span>
           </div>
 
-          {/* MEDICATIONS */}
-
           <div
             className="card"
             onClick={() =>
-              (window.location.href = `/medications?dog=${dog.id}`)
+            (window.location.href =
+              `/medications?dog=${dog.id}`)
             }
             style={{ cursor: "pointer" }}
           >
@@ -205,12 +387,11 @@ export default function DogProfile() {
             </span>
           </div>
 
-          {/* ROUTINES */}
-
           <div
             className="card"
             onClick={() =>
-              (window.location.href = `/routines?dog=${dog.id}`)
+            (window.location.href =
+              `/routines?dog=${dog.id}`)
             }
             style={{ cursor: "pointer" }}
           >
@@ -225,12 +406,11 @@ export default function DogProfile() {
             </span>
           </div>
 
-          {/* APPOINTMENTS */}
-
           <div
             className="card"
             onClick={() =>
-              (window.location.href = `/appointments?dog=${dog.id}`)
+            (window.location.href =
+              `/appointments?dog=${dog.id}`)
             }
             style={{ cursor: "pointer" }}
           >
