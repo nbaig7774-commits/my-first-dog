@@ -13,6 +13,10 @@ export default function Dashboard() {
   const [breed, setBreed] = useState("");
   const [msg, setMsg] = useState("");
 
+  const [subscriptionPlan, setSubscriptionPlan] = useState("none");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("inactive");
+  const [subscriptionInterval, setSubscriptionInterval] = useState(null);
+
   async function load() {
     const {
       data: { user },
@@ -24,6 +28,30 @@ export default function Dashboard() {
     }
 
     setUser(user);
+
+    const profileResult = await sb
+      .from("profiles")
+      .select(
+        "subscription_plan, subscription_status, subscription_interval"
+      )
+      .eq("id", user.id)
+      .single();
+
+    if (profileResult.error) {
+      setMsg(profileResult.error.message);
+    } else {
+      setSubscriptionPlan(
+        profileResult.data?.subscription_plan || "none"
+      );
+
+      setSubscriptionStatus(
+        profileResult.data?.subscription_status || "inactive"
+      );
+
+      setSubscriptionInterval(
+        profileResult.data?.subscription_interval || null
+      );
+    }
 
     const r = await sb
       .from("dogs")
@@ -65,6 +93,15 @@ export default function Dashboard() {
     location.href = "/";
   }
 
+  const isActive =
+    subscriptionStatus === "active";
+
+  const isPremium =
+    isActive && subscriptionPlan === "premium";
+
+  const isBasic =
+    isActive && subscriptionPlan === "basic";
+
   return (
     <>
       <Sidebar />
@@ -76,6 +113,7 @@ export default function Dashboard() {
         >
           <div>
             <h1>Dashboard</h1>
+
             <p className="muted">
               Your dog's care at a glance.
             </p>
@@ -85,6 +123,42 @@ export default function Dashboard() {
             Log out
           </button>
         </div>
+
+        <section className="card">
+          <h2>Your Plan</h2>
+
+          {isPremium ? (
+            <>
+              <strong>⭐ Premium</strong>
+
+              <p className="muted">
+                {subscriptionInterval === "annual"
+                  ? "Annual subscription"
+                  : "Monthly subscription"}
+              </p>
+            </>
+          ) : isBasic ? (
+            <>
+              <strong>🐶 Basic</strong>
+
+              <p className="muted">
+                {subscriptionInterval === "annual"
+                  ? "Annual subscription"
+                  : "Monthly subscription"}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>No active subscription</strong>
+
+              <p className="muted">
+                Please choose a Basic or Premium plan.
+              </p>
+            </>
+          )}
+        </section>
+
+        <br />
 
         <section className="grid">
           <div className="card">
