@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [msg, setMsg] = useState("");
-  const [planMsg, setPlanMsg] = useState("");
+
   const [subscriptionPlan, setSubscriptionPlan] =
     useState("none");
 
@@ -26,6 +26,9 @@ export default function Dashboard() {
     useState("monthly");
 
   const [premiumBilling, setPremiumBilling] =
+    useState("monthly");
+
+  const [proBilling, setProBilling] =
     useState("monthly");
 
   const [healthCount, setHealthCount] = useState(0);
@@ -78,7 +81,10 @@ export default function Dashboard() {
 
     const healthResult = await sb
       .from("health_records")
-      .select("id", { count: "exact", head: true });
+      .select("id", {
+        count: "exact",
+        head: true,
+      });
 
     if (!healthResult.error) {
       setHealthCount(healthResult.count || 0);
@@ -86,7 +92,10 @@ export default function Dashboard() {
 
     const vaccineResult = await sb
       .from("vaccinations")
-      .select("id", { count: "exact", head: true });
+      .select("id", {
+        count: "exact",
+        head: true,
+      });
 
     if (!vaccineResult.error) {
       setVaccineCount(vaccineResult.count || 0);
@@ -126,17 +135,22 @@ export default function Dashboard() {
   const isActive =
     subscriptionStatus === "active";
 
+  const isBasic =
+    isActive && subscriptionPlan === "basic";
+
   const isPremium =
     isActive && subscriptionPlan === "premium";
 
-  const isBasic =
-    isActive && subscriptionPlan === "basic";
+  const isPro =
+    isActive &&
+    (subscriptionPlan === "pro" ||
+      subscriptionPlan === "pro_family");
 
   const showPricing = !isActive;
 
   function choosePlan(plan, interval) {
-    setPlanMsg(
-      `${plan} ${interval} selected. Payment checkout will be connected next.`
+    setMsg(
+      `${plan} ${interval} selected. Payment checkout will be connected in the payment setup step.`
     );
   }
 
@@ -158,9 +172,10 @@ export default function Dashboard() {
   const pricingGrid = {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(340px, 1fr))",
-    gap: "24px",
+      "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "22px",
     marginTop: "28px",
+    alignItems: "stretch",
   };
 
   const basicCard = {
@@ -171,6 +186,8 @@ export default function Dashboard() {
       "linear-gradient(180deg, #f3f9ff 0%, #ffffff 35%)",
     boxShadow:
       "0 14px 35px rgba(30, 100, 180, 0.12)",
+    display: "flex",
+    flexDirection: "column",
   };
 
   const premiumCard = {
@@ -182,6 +199,20 @@ export default function Dashboard() {
     boxShadow:
       "0 18px 42px rgba(230, 150, 20, 0.18)",
     position: "relative",
+    display: "flex",
+    flexDirection: "column",
+  };
+
+  const proCard = {
+    border: "2px solid #ddd6fe",
+    borderRadius: "24px",
+    padding: "26px",
+    background:
+      "linear-gradient(180deg, #f8f5ff 0%, #ffffff 35%)",
+    boxShadow:
+      "0 14px 35px rgba(100, 70, 180, 0.12)",
+    display: "flex",
+    flexDirection: "column",
   };
 
   const featureBox = {
@@ -196,6 +227,13 @@ export default function Dashboard() {
     padding: "15px",
     marginTop: "18px",
     background: "#fff8e8",
+  };
+
+  const proFeatureBox = {
+    borderRadius: "16px",
+    padding: "15px",
+    marginTop: "18px",
+    background: "#f8f5ff",
   };
 
   const bonusBox = {
@@ -227,6 +265,19 @@ export default function Dashboard() {
     border: "none",
     borderRadius: "14px",
     background: "#f59e0b",
+    color: "white",
+    fontSize: "17px",
+    fontWeight: "700",
+    cursor: "pointer",
+  };
+
+  const subscribePro = {
+    width: "100%",
+    marginTop: "22px",
+    padding: "15px",
+    border: "none",
+    borderRadius: "14px",
+    background: "#7c3aed",
     color: "white",
     fontSize: "17px",
     fontWeight: "700",
@@ -273,30 +324,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* ACTIVE PLAN */}
-
-        {isPremium && (
-          <section
-            className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#fff8e8",
-              border: "1px solid #f5c451",
-              marginBottom: "24px",
-            }}
-          >
-            <h2>⭐ Premium Plan</h2>
-            <p className="muted">
-              Your Premium subscription is active.
-            </p>
-
-            <strong>
-              {subscriptionInterval === "annual"
-                ? "Annual subscription"
-                : "Monthly subscription"}
-            </strong>
-          </section>
-        )}
+        {/* ACTIVE BASIC */}
 
         {isBasic && (
           <section
@@ -312,6 +340,58 @@ export default function Dashboard() {
 
             <p className="muted">
               Your Basic subscription is active.
+            </p>
+
+            <strong>
+              {subscriptionInterval === "annual"
+                ? "Annual subscription"
+                : "Monthly subscription"}
+            </strong>
+          </section>
+        )}
+
+        {/* ACTIVE PREMIUM */}
+
+        {isPremium && (
+          <section
+            className="card"
+            style={{
+              borderRadius: "18px",
+              background: "#fff8e8",
+              border: "1px solid #f5c451",
+              marginBottom: "24px",
+            }}
+          >
+            <h2>⭐ Premium Plan</h2>
+
+            <p className="muted">
+              Your Premium subscription is active.
+            </p>
+
+            <strong>
+              {subscriptionInterval === "annual"
+                ? "Annual subscription"
+                : "Monthly subscription"}
+            </strong>
+          </section>
+        )}
+
+        {/* ACTIVE PRO */}
+
+        {isPro && (
+          <section
+            className="card"
+            style={{
+              borderRadius: "18px",
+              background: "#f7f3ff",
+              border: "1px solid #c4b5fd",
+              marginBottom: "24px",
+            }}
+          >
+            <h2>🏆 Pro Family Plan</h2>
+
+            <p className="muted">
+              Your Pro Family subscription is active.
             </p>
 
             <strong>
@@ -359,53 +439,58 @@ export default function Dashboard() {
                   fontSize: "16px",
                 }}
               >
-                Simple. Affordable. Complete.
+                Simple. Flexible. Complete.
               </p>
             </section>
 
             <section style={pricingGrid}>
 
-              {/* BASIC */}
+              {/* ================= BASIC ================= */}
 
               <div style={basicCard}>
 
-                <div
+                <h2
                   style={{
-                    display: "flex",
-                    justifyContent:
-                      "space-between",
-                    alignItems: "center",
+                    fontSize: "28px",
+                    marginBottom: "4px",
                   }}
                 >
-                  <div>
-                    <h2
-                      style={{
-                        fontSize: "28px",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      🐶 Basic Plan
-                    </h2>
+                  🐶 Basic Plan
+                </h2>
 
-                    <p className="muted">
-                      Essential tools to keep your
-                      dog healthy and happy.
-                    </p>
-                  </div>
+                <p className="muted">
+                  Perfect for everyday dog care.
+                </p>
 
+                <hr />
+
+                <h1>
+                  $15
                   <span
-                    className="pill"
                     style={{
-                      fontWeight: "700",
+                      fontSize: "16px",
+                      fontWeight: "400",
                     }}
                   >
-                    Great Value
+                    /month
                   </span>
-                </div>
+                </h1>
+
+                <p>
+                  <strong>$150/year</strong>
+                </p>
+
+                <p className="muted">
+                  💰 Save $30 with annual billing.
+                </p>
 
                 {/* BILLING */}
 
                 <div style={featureBox}>
+
+                  <h3>
+                    💳 Payment Subscription
+                  </h3>
 
                   <label
                     style={{
@@ -421,15 +506,11 @@ export default function Dashboard() {
                         basicBilling === "monthly"
                       }
                       onChange={() =>
-                        setBasicBilling(
-                          "monthly"
-                        )
+                        setBasicBilling("monthly")
                       }
                     />{" "}
                     <strong>Monthly</strong>{" "}
-                    <span>
-                      — $99.90/month
-                    </span>
+                    — $15/month
                   </label>
 
                   <label
@@ -446,69 +527,79 @@ export default function Dashboard() {
                         basicBilling === "annual"
                       }
                       onChange={() =>
-                        setBasicBilling(
-                          "annual"
-                        )
+                        setBasicBilling("annual")
                       }
                     />{" "}
                     <strong>Annual</strong>{" "}
-                    <span>
-                      — $1,100/year
-                    </span>
+                    — $150/year
                   </label>
 
-                  <p
-                    style={{
-                      marginBottom: 0,
-                      fontWeight: "700",
-                    }}
-                  >
-                    💰 Save $98.80 with annual
-                    billing.
-                  </p>
                 </div>
 
                 {/* SERVICES */}
 
                 <div style={featureBox}>
+
                   <h3>
                     Everyday Dog Care Services
                   </h3>
 
-                  <p>🐾 ✓ Dog Profile</p>
-                  <p className="muted">
-                    Dog name and breed
+                  <p>
+                    🐾 ✓ Dog Profile
                   </p>
 
-                  <p>❤️ ✓ Health Management</p>
+                  <p className="muted">
+                    Name and breed
+                  </p>
+
+                  <p>
+                    ❤️ ✓ Health Management
+                  </p>
+
                   <p className="muted">
                     Health records and timeline
                   </p>
 
-                  <p>💉 ✓ Vaccination Management</p>
-                  <p className="muted">
-                    Vaccine records and due dates
+                  <p>
+                    💉 ✓ Vaccination Management
                   </p>
 
-                  <p>💊 ✓ Medication Management</p>
+                  <p className="muted">
+                    Vaccines and due dates
+                  </p>
+
+                  <p>
+                    💊 ✓ Medication Management
+                  </p>
+
                   <p className="muted">
                     Medication and treatment information
                   </p>
 
-                  <p>🔄 ✓ Routine Management</p>
+                  <p>
+                    🔄 ✓ Routine Management
+                  </p>
+
                   <p className="muted">
                     Daily routines and care schedules
                   </p>
 
-                  <p>📅 ✓ Vet Appointment Management</p>
+                  <p>
+                    📅 ✓ Vet Appointment Management
+                  </p>
+
                   <p className="muted">
                     Appointment records and vet details
                   </p>
 
-                  <p>🤖 ✓ AI Care Assistant</p>
+                  <p>
+                    🤖 ✓ AI Care Assistant
+                  </p>
+
                   <p className="muted">
                     Basic dog-care questions and guidance
                   </p>
+
                 </div>
 
                 <button
@@ -525,7 +616,7 @@ export default function Dashboard() {
 
               </div>
 
-              {/* PREMIUM */}
+              {/* ================= PREMIUM ================= */}
 
               <div style={premiumCard}>
 
@@ -555,13 +646,38 @@ export default function Dashboard() {
                 </h2>
 
                 <p className="muted">
-                  Complete care with advanced
-                  features and more.
+                  Complete care for your dog.
+                </p>
+
+                <hr />
+
+                <h1>
+                  $25
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "400",
+                    }}
+                  >
+                    /month
+                  </span>
+                </h1>
+
+                <p>
+                  <strong>$250/year</strong>
+                </p>
+
+                <p className="muted">
+                  💰 Save $50 with annual billing.
                 </p>
 
                 {/* BILLING */}
 
                 <div style={premiumFeatureBox}>
+
+                  <h3>
+                    💳 Payment Subscription
+                  </h3>
 
                   <label
                     style={{
@@ -577,15 +693,11 @@ export default function Dashboard() {
                         premiumBilling === "monthly"
                       }
                       onChange={() =>
-                        setPremiumBilling(
-                          "monthly"
-                        )
+                        setPremiumBilling("monthly")
                       }
                     />{" "}
                     <strong>Monthly</strong>{" "}
-                    <span>
-                      — $149.90/month
-                    </span>
+                    — $25/month
                   </label>
 
                   <label
@@ -602,29 +714,16 @@ export default function Dashboard() {
                         premiumBilling === "annual"
                       }
                       onChange={() =>
-                        setPremiumBilling(
-                          "annual"
-                        )
+                        setPremiumBilling("annual")
                       }
                     />{" "}
                     <strong>Annual</strong>{" "}
-                    <span>
-                      — $1,650/year
-                    </span>
+                    — $250/year
                   </label>
 
-                  <p
-                    style={{
-                      marginBottom: 0,
-                      fontWeight: "700",
-                    }}
-                  >
-                    💰 Save $148.80 with annual
-                    billing.
-                  </p>
                 </div>
 
-                {/* PREMIUM SERVICES */}
+                {/* SERVICES */}
 
                 <div style={premiumFeatureBox}>
 
@@ -646,21 +745,19 @@ export default function Dashboard() {
                   </p>
 
                   <p>
-                    🩺 ✓ Advanced Health Management
+                    🩺 ✓ Advanced Health Timeline
                   </p>
 
                   <p className="muted">
-                    Detailed health information,
-                    history and trends
+                    Detailed health history and trends
                   </p>
 
                   <p>
-                    🧑‍⚕️ ✓ Veterinarian Management
+                    📊 ✓ Weight & Health Trends
                   </p>
 
                   <p className="muted">
-                    Veterinarian name, phone and
-                    important information
+                    Track changes over time
                   </p>
 
                   <p>
@@ -668,13 +765,44 @@ export default function Dashboard() {
                   </p>
 
                   <p className="muted">
-                    Personalized guidance and
-                    advanced care insights
+                    Personalized dog-care guidance
+                  </p>
+
+                  <p>
+                    📄 ✓ AI Vet Document Scanner
+                  </p>
+
+                  <p className="muted">
+                    Turn vet documents into organized records
+                  </p>
+
+                  <p>
+                    🧑‍⚕️ ✓ Veterinarian Management
+                  </p>
+
+                  <p className="muted">
+                    Store important veterinarian information
+                  </p>
+
+                  <p>
+                    📋 ✓ Vet Visit Report
+                  </p>
+
+                  <p className="muted">
+                    Create a useful summary for vet visits
+                  </p>
+
+                  <p>
+                    ❤️ ✓ Dog Care Score
+                  </p>
+
+                  <p className="muted">
+                    See your dog's overall care status
                   </p>
 
                 </div>
 
-                {/* BONUS */}
+                {/* PREMIUM BONUS */}
 
                 <div style={bonusBox}>
 
@@ -683,25 +811,26 @@ export default function Dashboard() {
                   </h3>
 
                   <p>
-                    📧 <strong>
+                    📧{" "}
+                    <strong>
                       Email Notifications
                     </strong>
                   </p>
 
                   <p className="muted">
-                    Appointment, vaccination and
-                    medication reminders
+                    Appointment, vaccine and medication
+                    reminders.
                   </p>
 
                   <p>
-                    📱 <strong>
+                    📱{" "}
+                    <strong>
                       Push Notifications
                     </strong>
                   </p>
 
                   <p className="muted">
-                    Appointment, vaccine and
-                    medication alerts
+                    Important alerts delivered to your phone.
                   </p>
 
                 </div>
@@ -720,9 +849,172 @@ export default function Dashboard() {
 
               </div>
 
+              {/* ================= PRO ================= */}
+
+              <div style={proCard}>
+
+                <h2
+                  style={{
+                    fontSize: "28px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  🏆 Pro Family
+                </h2>
+
+                <p className="muted">
+                  Built for multi-dog families.
+                </p>
+
+                <hr />
+
+                <h1>
+                  $35
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "400",
+                    }}
+                  >
+                    /month
+                  </span>
+                </h1>
+
+                <p>
+                  <strong>$350/year</strong>
+                </p>
+
+                <p className="muted">
+                  💰 Save $70 with annual billing.
+                </p>
+
+                {/* BILLING */}
+
+                <div style={proFeatureBox}>
+
+                  <h3>
+                    💳 Payment Subscription
+                  </h3>
+
+                  <label
+                    style={{
+                      display: "block",
+                      padding: "8px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="proBilling"
+                      checked={
+                        proBilling === "monthly"
+                      }
+                      onChange={() =>
+                        setProBilling("monthly")
+                      }
+                    />{" "}
+                    <strong>Monthly</strong>{" "}
+                    — $35/month
+                  </label>
+
+                  <label
+                    style={{
+                      display: "block",
+                      padding: "8px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="proBilling"
+                      checked={
+                        proBilling === "annual"
+                      }
+                      onChange={() =>
+                        setProBilling("annual")
+                      }
+                    />{" "}
+                    <strong>Annual</strong>{" "}
+                    — $350/year
+                  </label>
+
+                </div>
+
+                {/* PRO SERVICES */}
+
+                <div style={proFeatureBox}>
+
+                  <h3>
+                    Family & Advanced Care
+                  </h3>
+
+                  <p>
+                    🐶 ✓ Everything in Premium
+                  </p>
+
+                  <p className="muted">
+                    All Premium features included.
+                  </p>
+
+                  <p>
+                    👨‍👩‍👧 ✓ Family & Caregiver Sharing
+                  </p>
+
+                  <p className="muted">
+                    Share care information with family members.
+                  </p>
+
+                  <p>
+                    📄 ✓ Unlimited Document Scanning
+                  </p>
+
+                  <p className="muted">
+                    Organize more veterinary documents.
+                  </p>
+
+                  <p>
+                    💰 ✓ Pet-Care Expense Tracking
+                  </p>
+
+                  <p className="muted">
+                    Keep track of important care expenses.
+                  </p>
+
+                  <p>
+                    🛡️ ✓ Insurance-Ready Reports
+                  </p>
+
+                  <p className="muted">
+                    Prepare organized records for insurance.
+                  </p>
+
+                  <p>
+                    ⚡ ✓ Priority Support
+                  </p>
+
+                  <p className="muted">
+                    Get help when you need it.
+                  </p>
+
+                </div>
+
+                <button
+                  style={subscribePro}
+                  onClick={() =>
+                    choosePlan(
+                      "Pro Family",
+                      proBilling
+                    )
+                  }
+                >
+                  🏆 Subscribe to Pro →
+                </button>
+
+              </div>
+
             </section>
 
-            {/* TRUST STRIP */}
+            {/* TRUST */}
 
             <section
               style={{
@@ -743,8 +1035,9 @@ export default function Dashboard() {
                   <br />
                   Secure Payment
                 </strong>
+
                 <p className="muted">
-                  Your information is safe
+                  Your information is safe.
                 </p>
               </div>
 
@@ -754,8 +1047,9 @@ export default function Dashboard() {
                   <br />
                   Cancel Anytime
                 </strong>
+
                 <p className="muted">
-                  No long-term commitment
+                  No long-term commitment.
                 </p>
               </div>
 
@@ -765,14 +1059,21 @@ export default function Dashboard() {
                   <br />
                   Made for Dog Owners
                 </strong>
+
                 <p className="muted">
-                  Care for happier, healthier dogs
+                  One place for your dog's care.
                 </p>
               </div>
             </section>
 
             {msg && (
-              <p className="muted">
+              <p
+                className="muted"
+                style={{
+                  textAlign: "center",
+                  marginTop: "16px",
+                }}
+              >
                 {msg}
               </p>
             )}
@@ -781,7 +1082,7 @@ export default function Dashboard() {
 
         <br />
 
-        {/* STATISTICS */}
+        {/* DASHBOARD STATS */}
 
         <section
           style={{
@@ -964,8 +1265,7 @@ export default function Dashboard() {
             </h2>
 
             <p className="muted">
-              Manage your dogs and view their
-              profiles.
+              Manage your dogs and view their profiles.
             </p>
 
             {dogs.length ? (

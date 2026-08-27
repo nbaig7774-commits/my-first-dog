@@ -13,19 +13,41 @@ export default function Home() {
 
   const premiumFeatures = [
     ["🐕", "Detailed Dog Profile", "Birthday, age, gender, weight, height, color and microchip"],
-    ["🩺", "Advanced Health Management", "Detailed health information, history and trends"],
-    ["🧑‍⚕️", "Veterinarian Management", "Veterinarian name, phone and important information"],
-    ["🤖", "Advanced AI Care Assistant", "Personalized guidance and advanced care insights"],
+    ["🩺", "Advanced Health Timeline", "Detailed health history and trends"],
+    ["📊", "Weight & Health Trends", "Track changes over time"],
+    ["🤖", "Advanced AI Care Assistant", "Personalized dog-care guidance"],
+    ["📄", "AI Vet Document Scanner", "Turn vet documents into organized records"],
+    ["🧑‍⚕️", "Veterinarian Management", "Store important veterinarian information"],
+    ["📋", "Vet Visit Report", "Create a useful summary for vet visits"],
+    ["❤️", "Dog Care Score", "See your dog's overall care status"],
+  ];
+
+  const proFeatures = [
+    ["🐶", "Everything in Premium", "All Premium features included"],
+    ["👨‍👩‍👧", "Family & Caregiver Sharing", "Share care information with family members"],
+    ["📄", "Unlimited Document Scanning", "Organize more veterinary documents"],
+    ["💰", "Pet-Care Expense Tracking", "Keep track of important care expenses"],
+    ["🛡️", "Insurance-Ready Reports", "Prepare organized records for insurance"],
+    ["⚡", "Priority Support", "Get help when you need it"],
   ];
 
   return (
     <>
+      {/* NAVIGATION */}
+
       <nav className="nav">
         <div className="brand">
           🐶 My First Dog
         </div>
 
-        <div className="navlinks">
+        <div
+          className="navlinks"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "14px",
+          }}
+        >
           <Link href="/login">
             Log in
           </Link>
@@ -52,7 +74,7 @@ export default function Home() {
           }}
         >
           <span className="pill">
-            🐾 Your dog's care, organized
+            🐾 Your dog's complete care manager
           </span>
 
           <h1
@@ -74,9 +96,10 @@ export default function Home() {
               margin: "0 auto 24px",
             }}
           >
-            Keep health records, vaccinations,
-            medications, routines and vet
-            appointments together in one place.
+            Keep your dog's health records,
+            vaccinations, medications, routines
+            and vet appointments organized in one
+            simple place.
           </p>
 
           <Link
@@ -102,12 +125,36 @@ export default function Home() {
 
           <div className="grid">
             {[
-              ["🩺", "Health", "Organize your dog's health records."],
-              ["💊", "Medications", "Keep medication information organized."],
-              ["💉", "Vaccinations", "Track vaccines and due dates."],
-              ["🐾", "Routines", "Manage daily care routines."],
-              ["📅", "Appointments", "Keep track of vet appointments."],
-              ["🤖", "AI Care Assistant", "Get helpful dog-care guidance."],
+              [
+                "🩺",
+                "Health",
+                "Organize your dog's health records.",
+              ],
+              [
+                "💊",
+                "Medications",
+                "Keep medication information organized.",
+              ],
+              [
+                "💉",
+                "Vaccinations",
+                "Track vaccines and due dates.",
+              ],
+              [
+                "🐾",
+                "Routines",
+                "Manage daily care routines.",
+              ],
+              [
+                "📅",
+                "Appointments",
+                "Keep track of vet appointments.",
+              ],
+              [
+                "🤖",
+                "AI Care Assistant",
+                "Get helpful dog-care guidance.",
+              ],
             ].map((x) => (
               <div
                 className="card"
@@ -144,7 +191,7 @@ export default function Home() {
           <div
             style={{
               textAlign: "center",
-              marginBottom: "28px",
+              marginBottom: "30px",
             }}
           >
             <h2
@@ -157,7 +204,7 @@ export default function Home() {
             </h2>
 
             <p className="muted">
-              Simple. Affordable. Complete.
+              Simple. Flexible. Complete.
             </p>
           </div>
 
@@ -165,42 +212,38 @@ export default function Home() {
             style={{
               display: "grid",
               gridTemplateColumns:
-                "repeat(auto-fit, minmax(340px, 1fr))",
-              gap: "24px",
+                "repeat(auto-fit, minmax(300px, 1fr))",
+              gap: "22px",
+              alignItems: "stretch",
             }}
           >
 
-            {/* BASIC */}
+            {/* ================= BASIC ================= */}
 
             <div
               className="card"
               style={{
                 border: "2px solid #dbeafe",
                 borderRadius: "24px",
-                padding: "28px",
+                padding: "26px",
                 background:
                   "linear-gradient(180deg, #f3f9ff 0%, #ffffff 38%)",
                 boxShadow:
                   "0 14px 35px rgba(30, 100, 180, 0.12)",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              <h2
-                style={{
-                  fontSize: "29px",
-                }}
-              >
-                🐶 Basic Plan
-              </h2>
+              <h2>🐶 Basic</h2>
 
               <p className="muted">
-                Essential tools to keep your
-                dog healthy and happy.
+                Perfect for everyday dog care.
               </p>
 
               <hr />
 
               <h1>
-                $99.90
+                $15
                 <span
                   style={{
                     fontSize: "16px",
@@ -212,31 +255,22 @@ export default function Home() {
               </h1>
 
               <p>
-                <strong>
-                  $1,100/year
-                </strong>
+                <strong>$150/year</strong>
               </p>
 
               <p className="muted">
-                Pay monthly for 12 months:
-                $1,198.80
-              </p>
-
-              <p>
-                💰 <strong>
-                  Save $98.80 annually
-                </strong>
+                Save $30 with annual billing.
               </p>
 
               <h3>
-                Everyday Dog Care Services
+                Everyday Dog Care
               </h3>
 
               {basicFeatures.map((feature) => (
                 <div
                   key={feature[1]}
                   style={{
-                    marginTop: "16px",
+                    marginTop: "15px",
                   }}
                 >
                   <strong>
@@ -267,54 +301,49 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* PREMIUM */}
+            {/* ================= PREMIUM ================= */}
 
             <div
               className="card"
               style={{
                 border: "2px solid #f5b942",
                 borderRadius: "24px",
-                padding: "28px",
+                padding: "26px",
                 background:
                   "linear-gradient(180deg, #fff9e9 0%, #ffffff 38%)",
                 boxShadow:
                   "0 18px 42px rgba(230, 150, 20, 0.18)",
                 position: "relative",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
                 style={{
                   position: "absolute",
                   top: "-14px",
-                  right: "24px",
-                  padding: "8px 16px",
+                  right: "20px",
+                  padding: "8px 15px",
                   borderRadius: "999px",
                   background: "#f59e0b",
                   color: "white",
                   fontWeight: "800",
-                  fontSize: "14px",
+                  fontSize: "13px",
                 }}
               >
                 ⭐ Most Popular
               </div>
 
-              <h2
-                style={{
-                  fontSize: "29px",
-                }}
-              >
-                ⭐ Premium Plan
-              </h2>
+              <h2>⭐ Premium</h2>
 
               <p className="muted">
-                Complete care with advanced
-                features and more.
+                Complete care for your dog.
               </p>
 
               <hr />
 
               <h1>
-                $149.90
+                $25
                 <span
                   style={{
                     fontSize: "16px",
@@ -326,24 +355,15 @@ export default function Home() {
               </h1>
 
               <p>
-                <strong>
-                  $1,650/year
-                </strong>
+                <strong>$250/year</strong>
               </p>
 
               <p className="muted">
-                Pay monthly for 12 months:
-                $1,798.80
-              </p>
-
-              <p>
-                💰 <strong>
-                  Save $148.80 annually
-                </strong>
+                Save $50 with annual billing.
               </p>
 
               <h3>
-                Advanced Dog Care Services
+                Advanced Dog Care
               </h3>
 
               <p>
@@ -351,6 +371,131 @@ export default function Home() {
               </p>
 
               {premiumFeatures.map((feature) => (
+                <div
+                  key={feature[1]}
+                  style={{
+                    marginTop: "15px",
+                  }}
+                >
+                  <strong>
+                    {feature[0]} ✓ {feature[1]}
+                  </strong>
+
+                  <p
+                    className="muted"
+                    style={{
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    {feature[2]}
+                  </p>
+                </div>
+              ))}
+
+              {/* PREMIUM BONUS */}
+
+              <div
+                style={{
+                  marginTop: "22px",
+                  padding: "17px",
+                  borderRadius: "16px",
+                  background:
+                    "linear-gradient(135deg, #fff0f7, #fff8ec)",
+                  border:
+                    "1px solid #f5d5e5",
+                }}
+              >
+                <h3>
+                  🎁 Premium Bonuses
+                </h3>
+
+                <p>
+                  📧{" "}
+                  <strong>
+                    Email Notifications
+                  </strong>
+                </p>
+
+                <p className="muted">
+                  Appointment, vaccine and medication
+                  reminders.
+                </p>
+
+                <p>
+                  📱{" "}
+                  <strong>
+                    Push Notifications
+                  </strong>
+                </p>
+
+                <p className="muted">
+                  Important alerts delivered to your
+                  phone.
+                </p>
+              </div>
+
+              <Link
+                className="btn primary"
+                href="/login"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  marginTop: "25px",
+                }}
+              >
+                ⭐ Get Premium →
+              </Link>
+            </div>
+
+            {/* ================= PRO ================= */}
+
+            <div
+              className="card"
+              style={{
+                border: "2px solid #ddd6fe",
+                borderRadius: "24px",
+                padding: "26px",
+                background:
+                  "linear-gradient(180deg, #f8f5ff 0%, #ffffff 38%)",
+                boxShadow:
+                  "0 14px 35px rgba(100, 70, 180, 0.12)",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <h2>🏆 Pro Family</h2>
+
+              <p className="muted">
+                Built for multi-dog families.
+              </p>
+
+              <hr />
+
+              <h1>
+                $35
+                <span
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "400",
+                  }}
+                >
+                  /month
+                </span>
+              </h1>
+
+              <p>
+                <strong>$350/year</strong>
+              </p>
+
+              <p className="muted">
+                Save $70 with annual billing.
+              </p>
+
+              <h3>
+                Family & Advanced Care
+              </h3>
+
+              {proFeatures.map((feature) => (
                 <div
                   key={feature[1]}
                   style={{
@@ -372,46 +517,6 @@ export default function Home() {
                 </div>
               ))}
 
-              {/* BONUS */}
-
-              <div
-                style={{
-                  marginTop: "22px",
-                  padding: "18px",
-                  borderRadius: "16px",
-                  background:
-                    "linear-gradient(135deg, #fff0f7, #fff8ec)",
-                  border:
-                    "1px solid #f5d5e5",
-                }}
-              >
-                <h3>
-                  🎁 Premium Bonus Features
-                </h3>
-
-                <p>
-                  📧 <strong>
-                    Email Notifications
-                  </strong>
-                </p>
-
-                <p className="muted">
-                  Appointment, vaccination and
-                  medication reminders.
-                </p>
-
-                <p>
-                  📱 <strong>
-                    Push Notifications
-                  </strong>
-                </p>
-
-                <p className="muted">
-                  Appointment, vaccine and
-                  medication alerts.
-                </p>
-              </div>
-
               <Link
                 className="btn primary"
                 href="/login"
@@ -421,7 +526,7 @@ export default function Home() {
                   marginTop: "25px",
                 }}
               >
-                ⭐ Get Premium →
+                🏆 Get Pro →
               </Link>
             </div>
 
@@ -448,8 +553,9 @@ export default function Home() {
             🛡️
             <br />
             <strong>Secure Payment</strong>
+
             <p className="muted">
-              Your information is safe.
+              Your information is protected.
             </p>
           </div>
 
@@ -457,6 +563,7 @@ export default function Home() {
             ❤️
             <br />
             <strong>Cancel Anytime</strong>
+
             <p className="muted">
               No long-term commitment.
             </p>
@@ -466,8 +573,9 @@ export default function Home() {
             🐾
             <br />
             <strong>Made for Dog Owners</strong>
+
             <p className="muted">
-              Care for happier, healthier dogs.
+              One place for your dog's care.
             </p>
           </div>
         </section>
@@ -487,8 +595,7 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Choose Basic or Premium and get
-            started today.
+            Choose the plan that fits your dog's needs.
           </p>
 
           <Link
