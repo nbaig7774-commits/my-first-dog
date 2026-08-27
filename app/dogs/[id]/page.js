@@ -269,62 +269,57 @@ export default function DogProfile() {
           <div className="grid">
 
             <div className="card">
-              <h3>📧 Email Notifications</h3>
+              <h3>
+                📧 Email Notifications{" "}
+                {!isPremium && "🔒"}
+              </h3>
 
               <p className="muted">
                 Get important dog-care reminders
                 delivered directly to your email.
               </p>
 
-              <p>
-                🔔 Appointment reminders
-              </p>
+              <p>🔔 Appointment reminders</p>
+              <p>💉 Vaccination reminders</p>
+              <p>💊 Medication reminders</p>
 
-              <p>
-                💉 Vaccination reminders
-              </p>
-
-              <p>
-                💊 Medication reminders
-              </p>
+              {!isPremium && (
+                <button
+                  className="btn primary"
+                  onClick={() => router.push("/pricing")}
+                >
+                  ⭐ Unlock Premium →
+                </button>
+              )}
             </div>
 
             <div className="card">
-              <h3>📱 Push Notifications</h3>
+              <h3>
+                📱 Push Notifications{" "}
+                {!isPremium && "🔒"}
+              </h3>
 
               <p className="muted">
                 Receive timely alerts on your phone
                 for important dog-care events.
               </p>
 
-              <p>
-                📅 Appointment alerts
-              </p>
+              <p>📅 Appointment alerts</p>
+              <p>💉 Vaccine alerts</p>
+              <p>💊 Medication alerts</p>
 
-              <p>
-                💉 Vaccine alerts
-              </p>
-
-              <p>
-                💊 Medication alerts
-              </p>
+              {!isPremium && (
+                <button
+                  className="btn primary"
+                  onClick={() => router.push("/pricing")}
+                >
+                  ⭐ Unlock Premium →
+                </button>
+              )}
             </div>
 
           </div>
-
-          {!isPremium && (
-            <button
-              className="btn primary"
-              onClick={() =>
-                router.push("/pricing")
-              }
-            >
-              ⭐ Unlock Premium →
-            </button>
-          )}
         </section>
-
-        <br />
 
         {/* APP FEATURES */}
 
