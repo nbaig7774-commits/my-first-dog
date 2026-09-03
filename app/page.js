@@ -22,15 +22,6 @@ export default function Home() {
     ["❤️", "Dog Care Score", "See your dog's overall care status"],
   ];
 
-  const proFeatures = [
-    ["🐶", "Everything in Premium", "All Premium features included"],
-    ["👨‍👩‍👧", "Family & Caregiver Sharing", "Share care information with family members"],
-    ["📄", "Unlimited Document Scanning", "Organize more veterinary documents"],
-    ["💰", "Pet-Care Expense Tracking", "Keep track of important care expenses"],
-    ["🛡️", "Insurance-Ready Reports", "Prepare organized records for insurance"],
-    ["⚡", "Priority Support", "Get help when you need it"],
-  ];
-
   return (
     <>
       {/* NAVIGATION */}
@@ -240,10 +231,37 @@ export default function Home() {
                 Perfect for everyday dog care.
               </p>
 
+              <div
+                style={{
+                  padding: "14px",
+                  borderRadius: "14px",
+                  background: "#e8f4ff",
+                  marginTop: "10px",
+                  textAlign: "center",
+                }}
+              >
+                <strong
+                  style={{
+                    fontSize: "22px",
+                  }}
+                >
+                  🎁 3 MONTHS FREE
+                </strong>
+
+                <p
+                  style={{
+                    marginBottom: 0,
+                  }}
+                >
+                  New customers get Basic free
+                  for their first 3 months.
+                </p>
+              </div>
+
               <hr />
 
               <h1>
-                $15
+                $10
                 <span
                   style={{
                     fontSize: "16px",
@@ -255,11 +273,12 @@ export default function Home() {
               </h1>
 
               <p>
-                <strong>$150/year</strong>
+                <strong>$120/year</strong>
               </p>
 
               <p className="muted">
-                Save $30 with annual billing.
+                After the free trial:
+                $10/month or $120/year.
               </p>
 
               <h3>
@@ -297,7 +316,7 @@ export default function Home() {
                   marginTop: "25px",
                 }}
               >
-                Get Basic →
+                🎁 Start 3 Months Free →
               </Link>
             </div>
 
@@ -343,7 +362,7 @@ export default function Home() {
               <hr />
 
               <h1>
-                $25
+                $20
                 <span
                   style={{
                     fontSize: "16px",
@@ -355,11 +374,11 @@ export default function Home() {
               </h1>
 
               <p>
-                <strong>$250/year</strong>
+                <strong>$240/year</strong>
               </p>
 
               <p className="muted">
-                Save $50 with annual billing.
+                No free trial.
               </p>
 
               <h3>
@@ -447,89 +466,6 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* ================= PRO ================= */}
-
-            <div
-              className="card"
-              style={{
-                border: "2px solid #ddd6fe",
-                borderRadius: "24px",
-                padding: "26px",
-                background:
-                  "linear-gradient(180deg, #f8f5ff 0%, #ffffff 38%)",
-                boxShadow:
-                  "0 14px 35px rgba(100, 70, 180, 0.12)",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <h2>🏆 Pro Family</h2>
-
-              <p className="muted">
-                Built for multi-dog families.
-              </p>
-
-              <hr />
-
-              <h1>
-                $35
-                <span
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: "400",
-                  }}
-                >
-                  /month
-                </span>
-              </h1>
-
-              <p>
-                <strong>$350/year</strong>
-              </p>
-
-              <p className="muted">
-                Save $70 with annual billing.
-              </p>
-
-              <h3>
-                Family & Advanced Care
-              </h3>
-
-              {proFeatures.map((feature) => (
-                <div
-                  key={feature[1]}
-                  style={{
-                    marginTop: "16px",
-                  }}
-                >
-                  <strong>
-                    {feature[0]} ✓ {feature[1]}
-                  </strong>
-
-                  <p
-                    className="muted"
-                    style={{
-                      margin: "4px 0 0",
-                    }}
-                  >
-                    {feature[2]}
-                  </p>
-                </div>
-              ))}
-
-              <Link
-                className="btn primary"
-                href="/login"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  marginTop: "25px",
-                }}
-              >
-                🏆 Get Pro →
-              </Link>
-            </div>
-
           </section>
         </section>
 
@@ -552,7 +488,10 @@ export default function Home() {
           <div>
             🛡️
             <br />
-            <strong>Secure Payment</strong>
+
+            <strong>
+              Secure Payment
+            </strong>
 
             <p className="muted">
               Your information is protected.
@@ -562,7 +501,10 @@ export default function Home() {
           <div>
             ❤️
             <br />
-            <strong>Cancel Anytime</strong>
+
+            <strong>
+              Cancel Anytime
+            </strong>
 
             <p className="muted">
               No long-term commitment.
@@ -572,7 +514,10 @@ export default function Home() {
           <div>
             🐾
             <br />
-            <strong>Made for Dog Owners</strong>
+
+            <strong>
+              Made for Dog Owners
+            </strong>
 
             <p className="muted">
               One place for your dog's care.
