@@ -13,7 +13,9 @@ export default function Sidebar() {
         <Link href="/health">
           Health
         </Link>
-
+        <a href="/weight">
+          ⚖️ Weight
+        </a>
         <Link href="/medications">
           Medications
         </Link>
