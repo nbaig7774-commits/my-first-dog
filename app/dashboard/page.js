@@ -1,288 +1,170 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "../../lib/supabase";
+import { useRouter } from "next/navigation";
 import Sidebar from "../components/Sidebar";
+import { createClient } from "../../lib/supabase";
+import { hasPremiumAccess } from "../../lib/planAccess";
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const sb = createClient();
+  const router = useRouter();
 
   const [user, setUser] = useState(null);
   const [dogs, setDogs] = useState([]);
+  const [healthRecords, setHealthRecords] = useState([]);
+  const [vaccinations, setVaccinations] = useState([]);
+
+  const [subscriptionPlan, setSubscriptionPlan] = useState("none");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("inactive");
+  const [subscriptionInterval, setSubscriptionInterval] = useState(null);
+
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingDog, setSavingDog] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const [subscriptionPlan, setSubscriptionPlan] =
-    useState("none");
+  const [basicBilling, setBasicBilling] = useState("monthly");
+  const [premiumBilling, setPremiumBilling] = useState("monthly");
 
-  const [subscriptionStatus, setSubscriptionStatus] =
-    useState("inactive");
+  async function loadDashboard() {
+    setLoading(true);
 
-  const [subscriptionInterval, setSubscriptionInterval] =
-    useState(null);
-
-  const [basicBilling, setBasicBilling] =
-    useState("monthly");
-
-  const [premiumBilling, setPremiumBilling] =
-    useState("monthly");
-
-  const [proBilling, setProBilling] =
-    useState("monthly");
-
-  const [healthCount, setHealthCount] = useState(0);
-  const [vaccineCount, setVaccineCount] = useState(0);
-
-  async function load() {
     const {
-      data: { user },
+      data: { user: currentUser },
     } = await sb.auth.getUser();
 
-    if (!user) {
-      location.href = "/login";
+    if (!currentUser) {
+      router.replace("/login");
       return;
     }
 
-    setUser(user);
+    setUser(currentUser);
 
-    const profileResult = await sb
+    const { data: profile } = await sb
       .from("profiles")
       .select(
         "subscription_plan, subscription_status, subscription_interval"
       )
-      .eq("id", user.id)
-      .single();
+      .eq("id", currentUser.id)
+      .maybeSingle();
 
-    if (!profileResult.error) {
-      setSubscriptionPlan(
-        profileResult.data?.subscription_plan || "none"
-      );
-
-      setSubscriptionStatus(
-        profileResult.data?.subscription_status || "inactive"
-      );
-
-      setSubscriptionInterval(
-        profileResult.data?.subscription_interval || null
-      );
+    if (profile) {
+      setSubscriptionPlan(profile.subscription_plan || "none");
+      setSubscriptionStatus(profile.subscription_status || "inactive");
+      setSubscriptionInterval(profile.subscription_interval || null);
     }
 
-    const dogsResult = await sb
+    const { data: dogData, error: dogsError } = await sb
       .from("dogs")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("id, name, breed, created_at")
+      .order("created_at", { ascending: true });
 
-    if (dogsResult.error) {
-      setMsg(dogsResult.error.message);
-    } else {
-      setDogs(dogsResult.data || []);
+    if (dogsError) {
+      setMsg(dogsError.message);
+      setLoading(false);
+      return;
     }
 
-    const healthResult = await sb
-      .from("health_records")
-      .select("id", {
-        count: "exact",
-        head: true,
-      });
+    setDogs(dogData || []);
 
-    if (!healthResult.error) {
-      setHealthCount(healthResult.count || 0);
-    }
+    const [healthResult, vaccineResult] = await Promise.all([
+      sb
+        .from("health_records")
+        .select("id, dog_id, title, record_date, notes, created_at")
+        .order("record_date", { ascending: false }),
 
-    const vaccineResult = await sb
-      .from("vaccinations")
-      .select("id", {
-        count: "exact",
-        head: true,
-      });
+      sb
+        .from("vaccinations")
+        .select(
+          "id, dog_id, vaccine_name, vaccination_date, due_date, status, notes, created_at"
+        )
+        .order("vaccination_date", { ascending: false }),
+    ]);
 
-    if (!vaccineResult.error) {
-      setVaccineCount(vaccineResult.count || 0);
-    }
+    setHealthRecords(
+      healthResult.error ? [] : healthResult.data || []
+    );
+
+    setVaccinations(
+      vaccineResult.error ? [] : vaccineResult.data || []
+    );
+
+    setLoading(false);
   }
 
   useEffect(() => {
-    load();
+    loadDashboard();
   }, []);
 
-  async function add(e) {
-    e.preventDefault();
+  async function addDog(event) {
+    event.preventDefault();
 
-    if (!user) return;
+    const cleanName = name.trim();
+    const cleanBreed = breed.trim();
 
-    const r = await sb.from("dogs").insert({
+    if (!cleanName) {
+      setMsg("Please enter your dog's name.");
+      return;
+    }
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    setSavingDog(true);
+    setMsg("");
+
+    const { error } = await sb.from("dogs").insert({
       owner_id: user.id,
-      name: name.trim(),
-      breed: breed.trim(),
+      name: cleanName,
+      breed: cleanBreed || null,
     });
 
-    if (r.error) {
-      setMsg(r.error.message);
-    } else {
-      setName("");
-      setBreed("");
-      setMsg("");
-      load();
+    if (error) {
+      setMsg(error.message);
+      setSavingDog(false);
+      return;
     }
+
+    setName("");
+    setBreed("");
+    setMsg("Dog added successfully. 🐶");
+
+    await loadDashboard();
+
+    setSavingDog(false);
   }
 
   async function logout() {
     await sb.auth.signOut();
-    location.href = "/";
+    router.replace("/login");
   }
 
-  const isActive =
-    subscriptionStatus === "active";
+  function selectPlan(plan, billing) {
+    if (plan === "Basic") {
+      setMsg(
+        `Basic ${billing} selected. Your first 3 months are FREE. Paddle checkout will be connected during payment setup.`
+      );
+      return;
+    }
+
+    if (plan === "Premium") {
+      setMsg(
+        `Premium ${billing} selected. Premium has no free trial. Paddle checkout will be connected during payment setup.`
+      );
+    }
+  }
+
+  const isActive = subscriptionStatus === "active";
+
+  const isPremium =
+    isActive && hasPremiumAccess(subscriptionPlan);
 
   const isBasic =
     isActive && subscriptionPlan === "basic";
-
-  const isPremium =
-    isActive && subscriptionPlan === "premium";
-
-  const isPro =
-    isActive &&
-    (subscriptionPlan === "pro" ||
-      subscriptionPlan === "pro_family");
-
-  const showPricing = !isActive;
-
-  function choosePlan(plan, interval) {
-    setMsg(
-      `${plan} ${interval} selected. Payment checkout will be connected in the payment setup step.`
-    );
-  }
-
-  const pageStyle = {
-    paddingBottom: "50px",
-  };
-
-  const titleStyle = {
-    fontSize: "42px",
-    fontWeight: "800",
-    marginBottom: "6px",
-  };
-
-  const subtitleStyle = {
-    fontSize: "18px",
-    marginTop: 0,
-  };
-
-  const pricingGrid = {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "22px",
-    marginTop: "28px",
-    alignItems: "stretch",
-  };
-
-  const basicCard = {
-    border: "2px solid #dbeafe",
-    borderRadius: "24px",
-    padding: "26px",
-    background:
-      "linear-gradient(180deg, #f3f9ff 0%, #ffffff 35%)",
-    boxShadow:
-      "0 14px 35px rgba(30, 100, 180, 0.12)",
-    display: "flex",
-    flexDirection: "column",
-  };
-
-  const premiumCard = {
-    border: "2px solid #f5b942",
-    borderRadius: "24px",
-    padding: "26px",
-    background:
-      "linear-gradient(180deg, #fff9e9 0%, #ffffff 35%)",
-    boxShadow:
-      "0 18px 42px rgba(230, 150, 20, 0.18)",
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-  };
-
-  const proCard = {
-    border: "2px solid #ddd6fe",
-    borderRadius: "24px",
-    padding: "26px",
-    background:
-      "linear-gradient(180deg, #f8f5ff 0%, #ffffff 35%)",
-    boxShadow:
-      "0 14px 35px rgba(100, 70, 180, 0.12)",
-    display: "flex",
-    flexDirection: "column",
-  };
-
-  const featureBox = {
-    borderRadius: "16px",
-    padding: "15px",
-    marginTop: "18px",
-    background: "#f7fbff",
-  };
-
-  const premiumFeatureBox = {
-    borderRadius: "16px",
-    padding: "15px",
-    marginTop: "18px",
-    background: "#fff8e8",
-  };
-
-  const proFeatureBox = {
-    borderRadius: "16px",
-    padding: "15px",
-    marginTop: "18px",
-    background: "#f8f5ff",
-  };
-
-  const bonusBox = {
-    borderRadius: "16px",
-    padding: "16px",
-    marginTop: "18px",
-    background:
-      "linear-gradient(135deg, #fff0f7, #fff8ec)",
-    border: "1px solid #f5d5e5",
-  };
-
-  const subscribeBasic = {
-    width: "100%",
-    marginTop: "22px",
-    padding: "15px",
-    border: "none",
-    borderRadius: "14px",
-    background: "#1683f7",
-    color: "white",
-    fontSize: "17px",
-    fontWeight: "700",
-    cursor: "pointer",
-  };
-
-  const subscribePremium = {
-    width: "100%",
-    marginTop: "22px",
-    padding: "15px",
-    border: "none",
-    borderRadius: "14px",
-    background: "#f59e0b",
-    color: "white",
-    fontSize: "17px",
-    fontWeight: "700",
-    cursor: "pointer",
-  };
-
-  const subscribePro = {
-    width: "100%",
-    marginTop: "22px",
-    padding: "15px",
-    border: "none",
-    borderRadius: "14px",
-    background: "#7c3aed",
-    color: "white",
-    fontSize: "17px",
-    fontWeight: "700",
-    cursor: "pointer",
-  };
 
   return (
     <>
@@ -290,50 +172,47 @@ export default function Dashboard() {
 
       <main
         className="container"
-        style={pageStyle}
+        style={{
+          paddingBottom: "60px",
+        }}
       >
-
         {/* HEADER */}
 
         <div
-          className="row"
           style={{
+            display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "18px",
+            gap: "16px",
+            marginBottom: "20px",
           }}
         >
           <div>
-            <h1 style={titleStyle}>
-              Dashboard
-            </h1>
+            <h1>Dashboard</h1>
 
-            <p
-              className="muted"
-              style={subtitleStyle}
-            >
+            <p className="muted">
               Your dog's care at a glance.
             </p>
           </div>
 
           <button
             className="btn"
+            type="button"
             onClick={logout}
           >
             Log out
           </button>
         </div>
 
-        {/* ACTIVE BASIC */}
+        {/* ACTIVE PLAN */}
 
         {isBasic && (
           <section
             className="card"
             style={{
-              borderRadius: "18px",
-              background: "#f2f8ff",
-              border: "1px solid #b9dcff",
-              marginBottom: "24px",
+              marginBottom: "22px",
+              background: "#f3f9ff",
+              border: "1px solid #bfdbfe",
             }}
           >
             <h2>🐶 Basic Plan</h2>
@@ -350,16 +229,13 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* ACTIVE PREMIUM */}
-
         {isPremium && (
           <section
             className="card"
             style={{
-              borderRadius: "18px",
+              marginBottom: "22px",
               background: "#fff8e8",
               border: "1px solid #f5c451",
-              marginBottom: "24px",
             }}
           >
             <h2>⭐ Premium Plan</h2>
@@ -376,713 +252,366 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* ACTIVE PRO */}
-
-        {isPro && (
-          <section
-            className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#f7f3ff",
-              border: "1px solid #c4b5fd",
-              marginBottom: "24px",
-            }}
-          >
-            <h2>🏆 Pro Family Plan</h2>
-
-            <p className="muted">
-              Your Pro Family subscription is active.
-            </p>
-
-            <strong>
-              {subscriptionInterval === "annual"
-                ? "Annual subscription"
-                : "Monthly subscription"}
-            </strong>
-          </section>
-        )}
-
         {/* PRICING */}
 
-        {showPricing && (
-          <>
-            <section
+        <section
+          style={{
+            textAlign: "center",
+            marginTop: "28px",
+          }}
+        >
+          <h1>🐾 Choose the Best Plan for Your Dog</h1>
+
+          <p className="muted">
+            Simple. Flexible. Complete.
+          </p>
+        </section>
+
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: "22px",
+            marginTop: "26px",
+          }}
+        >
+          {/* BASIC CARD */}
+
+          <div
+            className="card"
+            style={{
+              borderRadius: "22px",
+              padding: "26px",
+              background:
+                "linear-gradient(180deg,#f3f9ff 0%,#ffffff 42%)",
+              border: "2px solid #bfdbfe",
+              boxSizing: "border-box",
+            }}
+          >
+            <h2>🐶 Basic</h2>
+
+            <p className="muted">
+              Perfect for everyday dog care.
+            </p>
+
+            <div
               style={{
-                textAlign: "center",
-                marginTop: "20px",
+                padding: "10px 14px",
+                borderRadius: "12px",
+                background: "#eaf4ff",
+                marginBottom: "12px",
+                fontWeight: "800",
               }}
             >
-              <h1
-                style={{
-                  fontSize: "38px",
-                  fontWeight: "800",
-                  marginBottom: "8px",
-                }}
-              >
-                🐾 Choose the Best Plan for Your Dog
-              </h1>
+              🎁 3 MONTHS FREE
+            </div>
 
-              <p
-                className="muted"
-                style={{
-                  fontSize: "18px",
-                  marginBottom: "4px",
-                }}
-              >
-                Give your dog the care, tracking,
-                and support they deserve.
-              </p>
-
-              <p
-                className="muted"
+            <h1>
+              $10
+              <span
                 style={{
                   fontSize: "16px",
+                  fontWeight: "400",
                 }}
               >
-                Simple. Flexible. Complete.
-              </p>
-            </section>
+                /month
+              </span>
+            </h1>
 
-            <section style={pricingGrid}>
+            <strong>$120/year</strong>
 
-              {/* ================= BASIC ================= */}
+            <p className="muted">
+              3 months free for new customers, then
+              $10/month or $120/year.
+            </p>
 
-              <div style={basicCard}>
-
-                <h2
-                  style={{
-                    fontSize: "28px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  🐶 Basic Plan
-                </h2>
-
-                <p className="muted">
-                  Perfect for everyday dog care.
-                </p>
-
-                <hr />
-
-                <h1>
-                  $15
-                  <span
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: "400",
-                    }}
-                  >
-                    /month
-                  </span>
-                </h1>
-
-                <p>
-                  <strong>$150/year</strong>
-                </p>
-
-                <p className="muted">
-                  💰 Save $30 with annual billing.
-                </p>
-
-                {/* BILLING */}
-
-                <div style={featureBox}>
-
-                  <h3>
-                    💳 Payment Subscription
-                  </h3>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="basicBilling"
-                      checked={
-                        basicBilling === "monthly"
-                      }
-                      onChange={() =>
-                        setBasicBilling("monthly")
-                      }
-                    />{" "}
-                    <strong>Monthly</strong>{" "}
-                    — $15/month
-                  </label>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="basicBilling"
-                      checked={
-                        basicBilling === "annual"
-                      }
-                      onChange={() =>
-                        setBasicBilling("annual")
-                      }
-                    />{" "}
-                    <strong>Annual</strong>{" "}
-                    — $150/year
-                  </label>
-
-                </div>
-
-                {/* SERVICES */}
-
-                <div style={featureBox}>
-
-                  <h3>
-                    Everyday Dog Care Services
-                  </h3>
-
-                  <p>
-                    🐾 ✓ Dog Profile
-                  </p>
-
-                  <p className="muted">
-                    Name and breed
-                  </p>
-
-                  <p>
-                    ❤️ ✓ Health Management
-                  </p>
-
-                  <p className="muted">
-                    Health records and timeline
-                  </p>
-
-                  <p>
-                    💉 ✓ Vaccination Management
-                  </p>
-
-                  <p className="muted">
-                    Vaccines and due dates
-                  </p>
-
-                  <p>
-                    💊 ✓ Medication Management
-                  </p>
-
-                  <p className="muted">
-                    Medication and treatment information
-                  </p>
-
-                  <p>
-                    🔄 ✓ Routine Management
-                  </p>
-
-                  <p className="muted">
-                    Daily routines and care schedules
-                  </p>
-
-                  <p>
-                    📅 ✓ Vet Appointment Management
-                  </p>
-
-                  <p className="muted">
-                    Appointment records and vet details
-                  </p>
-
-                  <p>
-                    🤖 ✓ AI Care Assistant
-                  </p>
-
-                  <p className="muted">
-                    Basic dog-care questions and guidance
-                  </p>
-
-                </div>
-
-                <button
-                  style={subscribeBasic}
-                  onClick={() =>
-                    choosePlan(
-                      "Basic",
-                      basicBilling
-                    )
-                  }
-                >
-                  Subscribe to Basic →
-                </button>
-
-              </div>
-
-              {/* ================= PREMIUM ================= */}
-
-              <div style={premiumCard}>
-
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "-14px",
-                    right: "24px",
-                    padding: "8px 16px",
-                    borderRadius: "999px",
-                    background: "#f59e0b",
-                    color: "white",
-                    fontWeight: "800",
-                    fontSize: "14px",
-                  }}
-                >
-                  ⭐ Most Popular
-                </div>
-
-                <h2
-                  style={{
-                    fontSize: "28px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  ⭐ Premium Plan
-                </h2>
-
-                <p className="muted">
-                  Complete care for your dog.
-                </p>
-
-                <hr />
-
-                <h1>
-                  $25
-                  <span
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: "400",
-                    }}
-                  >
-                    /month
-                  </span>
-                </h1>
-
-                <p>
-                  <strong>$250/year</strong>
-                </p>
-
-                <p className="muted">
-                  💰 Save $50 with annual billing.
-                </p>
-
-                {/* BILLING */}
-
-                <div style={premiumFeatureBox}>
-
-                  <h3>
-                    💳 Payment Subscription
-                  </h3>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="premiumBilling"
-                      checked={
-                        premiumBilling === "monthly"
-                      }
-                      onChange={() =>
-                        setPremiumBilling("monthly")
-                      }
-                    />{" "}
-                    <strong>Monthly</strong>{" "}
-                    — $25/month
-                  </label>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="premiumBilling"
-                      checked={
-                        premiumBilling === "annual"
-                      }
-                      onChange={() =>
-                        setPremiumBilling("annual")
-                      }
-                    />{" "}
-                    <strong>Annual</strong>{" "}
-                    — $250/year
-                  </label>
-
-                </div>
-
-                {/* SERVICES */}
-
-                <div style={premiumFeatureBox}>
-
-                  <h3>
-                    Advanced Dog Care Services
-                  </h3>
-
-                  <p>
-                    ✓ Everything in Basic
-                  </p>
-
-                  <p>
-                    🐕 ✓ Detailed Dog Profile
-                  </p>
-
-                  <p className="muted">
-                    Birthday, age, gender, weight,
-                    height, color and microchip
-                  </p>
-
-                  <p>
-                    🩺 ✓ Advanced Health Timeline
-                  </p>
-
-                  <p className="muted">
-                    Detailed health history and trends
-                  </p>
-
-                  <p>
-                    📊 ✓ Weight & Health Trends
-                  </p>
-
-                  <p className="muted">
-                    Track changes over time
-                  </p>
-
-                  <p>
-                    🤖 ✓ Advanced AI Care Assistant
-                  </p>
-
-                  <p className="muted">
-                    Personalized dog-care guidance
-                  </p>
-
-                  <p>
-                    📄 ✓ AI Vet Document Scanner
-                  </p>
-
-                  <p className="muted">
-                    Turn vet documents into organized records
-                  </p>
-
-                  <p>
-                    🧑‍⚕️ ✓ Veterinarian Management
-                  </p>
-
-                  <p className="muted">
-                    Store important veterinarian information
-                  </p>
-
-                  <p>
-                    📋 ✓ Vet Visit Report
-                  </p>
-
-                  <p className="muted">
-                    Create a useful summary for vet visits
-                  </p>
-
-                  <p>
-                    ❤️ ✓ Dog Care Score
-                  </p>
-
-                  <p className="muted">
-                    See your dog's overall care status
-                  </p>
-
-                </div>
-
-                {/* PREMIUM BONUS */}
-
-                <div style={bonusBox}>
-
-                  <h3>
-                    🎁 Premium Bonus Features
-                  </h3>
-
-                  <p>
-                    📧{" "}
-                    <strong>
-                      Email Notifications
-                    </strong>
-                  </p>
-
-                  <p className="muted">
-                    Appointment, vaccine and medication
-                    reminders.
-                  </p>
-
-                  <p>
-                    📱{" "}
-                    <strong>
-                      Push Notifications
-                    </strong>
-                  </p>
-
-                  <p className="muted">
-                    Important alerts delivered to your phone.
-                  </p>
-
-                </div>
-
-                <button
-                  style={subscribePremium}
-                  onClick={() =>
-                    choosePlan(
-                      "Premium",
-                      premiumBilling
-                    )
-                  }
-                >
-                  ⭐ Subscribe to Premium →
-                </button>
-
-              </div>
-
-              {/* ================= PRO ================= */}
-
-              <div style={proCard}>
-
-                <h2
-                  style={{
-                    fontSize: "28px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  🏆 Pro Family
-                </h2>
-
-                <p className="muted">
-                  Built for multi-dog families.
-                </p>
-
-                <hr />
-
-                <h1>
-                  $35
-                  <span
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: "400",
-                    }}
-                  >
-                    /month
-                  </span>
-                </h1>
-
-                <p>
-                  <strong>$350/year</strong>
-                </p>
-
-                <p className="muted">
-                  💰 Save $70 with annual billing.
-                </p>
-
-                {/* BILLING */}
-
-                <div style={proFeatureBox}>
-
-                  <h3>
-                    💳 Payment Subscription
-                  </h3>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="proBilling"
-                      checked={
-                        proBilling === "monthly"
-                      }
-                      onChange={() =>
-                        setProBilling("monthly")
-                      }
-                    />{" "}
-                    <strong>Monthly</strong>{" "}
-                    — $35/month
-                  </label>
-
-                  <label
-                    style={{
-                      display: "block",
-                      padding: "8px 0",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="proBilling"
-                      checked={
-                        proBilling === "annual"
-                      }
-                      onChange={() =>
-                        setProBilling("annual")
-                      }
-                    />{" "}
-                    <strong>Annual</strong>{" "}
-                    — $350/year
-                  </label>
-
-                </div>
-
-                {/* PRO SERVICES */}
-
-                <div style={proFeatureBox}>
-
-                  <h3>
-                    Family & Advanced Care
-                  </h3>
-
-                  <p>
-                    🐶 ✓ Everything in Premium
-                  </p>
-
-                  <p className="muted">
-                    All Premium features included.
-                  </p>
-
-                  <p>
-                    👨‍👩‍👧 ✓ Family & Caregiver Sharing
-                  </p>
-
-                  <p className="muted">
-                    Share care information with family members.
-                  </p>
-
-                  <p>
-                    📄 ✓ Unlimited Document Scanning
-                  </p>
-
-                  <p className="muted">
-                    Organize more veterinary documents.
-                  </p>
-
-                  <p>
-                    💰 ✓ Pet-Care Expense Tracking
-                  </p>
-
-                  <p className="muted">
-                    Keep track of important care expenses.
-                  </p>
-
-                  <p>
-                    🛡️ ✓ Insurance-Ready Reports
-                  </p>
-
-                  <p className="muted">
-                    Prepare organized records for insurance.
-                  </p>
-
-                  <p>
-                    ⚡ ✓ Priority Support
-                  </p>
-
-                  <p className="muted">
-                    Get help when you need it.
-                  </p>
-
-                </div>
-
-                <button
-                  style={subscribePro}
-                  onClick={() =>
-                    choosePlan(
-                      "Pro Family",
-                      proBilling
-                    )
-                  }
-                >
-                  🏆 Subscribe to Pro →
-                </button>
-
-              </div>
-
-            </section>
-
-            {/* TRUST */}
-
-            <section
+            <div
               style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "12px",
-                marginTop: "22px",
-                padding: "18px",
-                borderRadius: "18px",
-                background: "#f5f9ff",
-                textAlign: "center",
+                padding: "15px",
+                marginTop: "15px",
+                borderRadius: "15px",
+                background: "#f7fbff",
               }}
             >
-              <div>
-                🛡️
-                <strong>
-                  <br />
-                  Secure Payment
-                </strong>
+              <strong>💳 Billing</strong>
 
-                <p className="muted">
-                  Your information is safe.
-                </p>
-              </div>
-
-              <div>
-                ❤️
-                <strong>
-                  <br />
-                  Cancel Anytime
-                </strong>
-
-                <p className="muted">
-                  No long-term commitment.
-                </p>
-              </div>
-
-              <div>
-                🐾
-                <strong>
-                  <br />
-                  Made for Dog Owners
-                </strong>
-
-                <p className="muted">
-                  One place for your dog's care.
-                </p>
-              </div>
-            </section>
-
-            {msg && (
-              <p
-                className="muted"
+              <label
                 style={{
-                  textAlign: "center",
-                  marginTop: "16px",
+                  display: "block",
+                  marginTop: "12px",
                 }}
               >
-                {msg}
+                <input
+                  type="radio"
+                  name="basicBilling"
+                  checked={basicBilling === "monthly"}
+                  onChange={() =>
+                    setBasicBilling("monthly")
+                  }
+                />{" "}
+                Monthly — $10/month
+              </label>
+
+              <label
+                style={{
+                  display: "block",
+                  marginTop: "10px",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="basicBilling"
+                  checked={basicBilling === "annual"}
+                  onChange={() =>
+                    setBasicBilling("annual")
+                  }
+                />{" "}
+                Annual — $120/year
+              </label>
+            </div>
+
+            <div
+              style={{
+                padding: "15px",
+                marginTop: "18px",
+                borderRadius: "15px",
+                background: "#f7fbff",
+              }}
+            >
+              <h3>Everyday Dog Care</h3>
+
+              <p>🐾 ✓ Dog Profile</p>
+              <p className="muted">
+                Name and breed
               </p>
-            )}
-          </>
+
+              <p>❤️ ✓ Health Management</p>
+              <p className="muted">
+                Health records and timeline
+              </p>
+
+              <p>💉 ✓ Vaccination Management</p>
+              <p className="muted">
+                Vaccines and due dates
+              </p>
+
+              <p>💊 ✓ Medication Management</p>
+              <p className="muted">
+                Medication and treatment information
+              </p>
+
+              <p>🔄 ✓ Routine Management</p>
+              <p className="muted">
+                Daily routines and care schedules
+              </p>
+
+              <p>📅 ✓ Vet Appointment Management</p>
+              <p className="muted">
+                Appointment records and vet details
+              </p>
+
+              <p>🤖 ✓ AI Care Assistant</p>
+              <p className="muted">
+                Basic dog-care questions and guidance
+              </p>
+            </div>
+
+            <button
+              className="btn primary"
+              type="button"
+              style={{
+                width: "100%",
+                marginTop: "20px",
+              }}
+              onClick={() =>
+                selectPlan("Basic", basicBilling)
+              }
+            >
+              🎁 Start 3 Months Free →
+            </button>
+          </div>
+
+          {/* PREMIUM CARD */}
+
+          <div
+            className="card"
+            style={{
+              borderRadius: "22px",
+              padding: "26px",
+              background:
+                "linear-gradient(180deg,#fff9e8 0%,#ffffff 42%)",
+              border: "2px solid #f5c451",
+              position: "relative",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: "-13px",
+                right: "20px",
+                padding: "7px 14px",
+                borderRadius: "999px",
+                background: "#f59e0b",
+                color: "#ffffff",
+                fontWeight: "800",
+              }}
+            >
+              ⭐ Most Popular
+            </div>
+
+            <h2>⭐ Premium</h2>
+
+            <p className="muted">
+              Complete care for your dog.
+            </p>
+
+            <h1>
+              $20
+              <span
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "400",
+                }}
+              >
+                /month
+              </span>
+            </h1>
+
+            <strong>$240/year</strong>
+
+            <p className="muted">
+              Premium has no free trial.
+            </p>
+
+            <div
+              style={{
+                padding: "15px",
+                marginTop: "15px",
+                borderRadius: "15px",
+                background: "#fffaf0",
+              }}
+            >
+              <strong>💳 Billing</strong>
+
+              <label
+                style={{
+                  display: "block",
+                  marginTop: "12px",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="premiumBilling"
+                  checked={premiumBilling === "monthly"}
+                  onChange={() =>
+                    setPremiumBilling("monthly")
+                  }
+                />{" "}
+                Monthly — $20/month
+              </label>
+
+              <label
+                style={{
+                  display: "block",
+                  marginTop: "10px",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="premiumBilling"
+                  checked={premiumBilling === "annual"}
+                  onChange={() =>
+                    setPremiumBilling("annual")
+                  }
+                />{" "}
+                Annual — $240/year
+              </label>
+            </div>
+
+            <div
+              style={{
+                padding: "15px",
+                marginTop: "18px",
+                borderRadius: "15px",
+                background: "#fffaf0",
+              }}
+            >
+              <h3>Complete Dog Care</h3>
+
+              <p>🐾 ✓ Dog Profile</p>
+              <p className="muted">
+                Complete dog information
+              </p>
+
+              <p>❤️ ✓ Health Management</p>
+              <p className="muted">
+                Complete health history
+              </p>
+
+              <p>💉 ✓ Vaccination Management</p>
+              <p className="muted">
+                Vaccines, dates and reminders
+              </p>
+
+              <p>💊 ✓ Medication Management</p>
+              <p className="muted">
+                Medication and treatment tracking
+              </p>
+
+              <p>🔄 ✓ Routine Management</p>
+              <p className="muted">
+                Daily routines and schedules
+              </p>
+
+              <p>📅 ✓ Vet Appointment Management</p>
+              <p className="muted">
+                Appointments and vet details
+              </p>
+
+              <p>🤖 ✓ Premium AI Care Assistant</p>
+              <p className="muted">
+                Advanced personalized dog-care guidance
+              </p>
+
+              <p>📧 ✓ Email Reminders</p>
+              <p className="muted">
+                Appointment, vaccination and medication reminders
+              </p>
+            </div>
+
+            <button
+              className="btn primary"
+              type="button"
+              style={{
+                width: "100%",
+                marginTop: "20px",
+              }}
+              onClick={() =>
+                selectPlan("Premium", premiumBilling)
+              }
+            >
+              ⭐ Choose Premium →
+            </button>
+          </div>
+        </section>
+
+        {/* MESSAGE */}
+
+        {msg && (
+          <div
+            className="card"
+            style={{
+              marginTop: "20px",
+              background: "#f8fafc",
+            }}
+          >
+            <p>{msg}</p>
+          </div>
         )}
 
-        <br />
-
-        {/* DASHBOARD STATS */}
+        {/* STATS */}
 
         <section
           style={{
@@ -1090,63 +619,39 @@ export default function Dashboard() {
             gridTemplateColumns:
               "repeat(auto-fit, minmax(180px, 1fr))",
             gap: "16px",
+            marginTop: "26px",
           }}
         >
-
-          <div
-            className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#f5efff",
-            }}
-          >
+          <div className="card">
             <div className="stat">
               🐾 {dogs.length}
             </div>
 
-            <strong>
-              Dogs
-            </strong>
+            <strong>Dogs</strong>
 
             <p className="muted">
               Your furry family members
             </p>
           </div>
 
-          <div
-            className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#effcf4",
-            }}
-          >
+          <div className="card">
             <div className="stat">
-              ❤️ {healthCount}
+              ❤️ {healthRecords.length}
             </div>
 
-            <strong>
-              Health Records
-            </strong>
+            <strong>Health Records</strong>
 
             <p className="muted">
               Keep track of health history
             </p>
           </div>
 
-          <div
-            className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#eef7ff",
-            }}
-          >
+          <div className="card">
             <div className="stat">
-              💉 {vaccineCount}
+              💉 {vaccinations.length}
             </div>
 
-            <strong>
-              Vaccines
-            </strong>
+            <strong>Vaccines</strong>
 
             <p className="muted">
               Stay up to date
@@ -1155,32 +660,22 @@ export default function Dashboard() {
 
           <div
             className="card"
-            style={{
-              borderRadius: "18px",
-              background: "#f8f0ff",
-              cursor: "pointer",
-            }}
+            style={{ cursor: "pointer" }}
             onClick={() =>
-            (window.location.href =
-              "/ai-assistant")
+              router.push("/ai-assistant")
             }
           >
             <div className="stat">
               🤖
             </div>
 
-            <strong>
-              AI Assistant
-            </strong>
+            <strong>AI Assistant</strong>
 
             <p className="muted">
               Get help with your dog's care →
             </p>
           </div>
-
         </section>
-
-        <br />
 
         {/* ADD DOG + YOUR DOGS */}
 
@@ -1190,26 +685,17 @@ export default function Dashboard() {
             gridTemplateColumns:
               "repeat(auto-fit, minmax(320px, 1fr))",
             gap: "20px",
+            marginTop: "20px",
           }}
         >
-
-          {/* ADD DOG */}
-
           <form
             className="card"
-            onSubmit={add}
-            style={{
-              borderRadius: "20px",
-              background: "#f7fbff",
-            }}
+            onSubmit={addDog}
           >
-            <h2>
-              ➕ Add your dog
-            </h2>
+            <h2>➕ Add your dog</h2>
 
             <p className="muted">
-              Start tracking your dog's health
-              and care.
+              Start tracking your dog's health and care.
             </p>
 
             <input
@@ -1237,59 +723,57 @@ export default function Dashboard() {
 
             <button
               className="btn primary"
+              type="submit"
+              disabled={savingDog}
               style={{
                 width: "100%",
               }}
             >
-              Add dog →
+              {savingDog
+                ? "Adding..."
+                : "Add dog →"}
             </button>
-
-            {msg && (
-              <p className="muted">
-                {msg}
-              </p>
-            )}
           </form>
 
-          {/* YOUR DOGS */}
-
-          <div
-            className="card"
-            style={{
-              borderRadius: "20px",
-              background: "#ffffff",
-            }}
-          >
-            <h2>
-              🐾 Your dogs
-            </h2>
+          <div className="card">
+            <h2>🐾 Your dogs</h2>
 
             <p className="muted">
               Manage your dogs and view their profiles.
             </p>
 
-            {dogs.length ? (
-              dogs.map((d) => (
+            {loading ? (
+              <p className="muted">
+                Loading...
+              </p>
+            ) : dogs.length === 0 ? (
+              <p className="muted">
+                Add your first dog.
+              </p>
+            ) : (
+              dogs.map((dog) => (
                 <div
-                  key={d.id}
+                  key={dog.id}
                   style={{
                     display: "flex",
                     justifyContent:
                       "space-between",
                     alignItems: "center",
+                    gap: "12px",
                     padding: "14px 0",
                     borderBottom:
                       "1px solid #edf1f7",
                     cursor: "pointer",
                   }}
                   onClick={() =>
-                  (location.href =
-                    `/dogs/${d.id}`)
+                    router.push(
+                      `/dogs/${dog.id}`
+                    )
                   }
                 >
                   <div>
                     <strong>
-                      🐶 {d.name}
+                      🐶 {dog.name}
                     </strong>
 
                     <p
@@ -1298,7 +782,7 @@ export default function Dashboard() {
                         margin: "4px 0 0",
                       }}
                     >
-                      {d.breed ||
+                      {dog.breed ||
                         "Breed not set"}
                     </p>
                   </div>
@@ -1308,15 +792,9 @@ export default function Dashboard() {
                   </span>
                 </div>
               ))
-            ) : (
-              <p className="muted">
-                Add your first dog.
-              </p>
             )}
           </div>
-
         </section>
-
       </main>
     </>
   );
