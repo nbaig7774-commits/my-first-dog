@@ -1,6 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "../lib/supabase.js";
 
 export default function Home() {
+  const supabase = createClient();
+
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [dogs, setDogs] = useState([]);
+  const [healthCount, setHealthCount] = useState(0);
+  const [vaccineCount, setVaccineCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const basicFeatures = [
     ["🐾", "Dog Profile", "Name and breed"],
     ["❤️", "Health Management", "Health records and timeline"],
@@ -22,39 +35,153 @@ export default function Home() {
     ["❤️", "Dog Care Score", "See your dog's overall care status"],
   ];
 
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        setUser(user || null);
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        setProfile(profileData || null);
+
+        const { data: dogsData } = await supabase
+          .from("dogs")
+          .select("*")
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false });
+
+        const dogList = dogsData || [];
+        setDogs(dogList);
+
+        if (dogList.length > 0) {
+          const dogIds = dogList.map((dog) => dog.id);
+
+          const { count: healthCountData } = await supabase
+            .from("health_records")
+            .select("*", { count: "exact", head: true })
+            .in("dog_id", dogIds);
+
+          const { count: vaccineCountData } = await supabase
+            .from("vaccinations")
+            .select("*", { count: "exact", head: true })
+            .in("dog_id", dogIds);
+
+          setHealthCount(healthCountData || 0);
+          setVaccineCount(vaccineCountData || 0);
+        }
+      } catch (error) {
+        console.error("HOME PAGE ERROR:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboardData();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  const isLoggedIn = !!user;
+
+  const subscriptionPlan =
+    profile?.subscription_plan?.toLowerCase() || "";
+
+  const subscriptionStatus =
+    profile?.subscription_status?.toLowerCase() || "";
+
+  const isPremium =
+    subscriptionPlan === "premium" &&
+    subscriptionStatus === "active";
+
   return (
     <>
+      {/* ===================================================== */}
       {/* NAVIGATION */}
+      {/* ===================================================== */}
 
-      <nav className="nav">
-        <div className="brand">
+      <nav
+        className="nav"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "20px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          className="brand"
+          style={{
+            fontWeight: "800",
+            fontSize: "20px",
+          }}
+        >
           🐶 My First Dog
         </div>
 
         <div
-          className="navlinks"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "14px",
+            flexWrap: "wrap",
           }}
         >
-          <Link href="/login">
-            Log in
-          </Link>
+          {isLoggedIn ? (
+            <>
+              <Link href="/dashboard">Dashboard</Link>
+              <Link href="/health">Health</Link>
+              <Link href="/weight">⚖️ Weight</Link>
+              <Link href="/medications">Medications</Link>
+              <Link href="/vaccinations">Vaccinations</Link>
+              <Link href="/routines">Routines</Link>
+              <Link href="/appointments">Appointments</Link>
+              <Link href="/ai-assistant">🤖 AI Assistant</Link>
 
-          <Link
-            className="btn primary"
-            href="/login"
-          >
-            Get Started
-          </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="btn"
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">Log in</Link>
+
+              <Link
+                className="btn primary"
+                href="/login"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
       <main className="container">
 
+        {/* ===================================================== */}
         {/* HERO */}
+        {/* ===================================================== */}
 
         <section
           className="hero"
@@ -95,13 +222,274 @@ export default function Home() {
 
           <Link
             className="btn primary"
-            href="/login"
+            href={isLoggedIn ? "/dashboard" : "/login"}
           >
-            Get Started →
+            {isLoggedIn ? "Go to Dashboard →" : "Get Started →"}
           </Link>
         </section>
 
+        {/* ===================================================== */}
+        {/* LOGGED-IN DASHBOARD SUMMARY */}
+        {/* ===================================================== */}
+
+        {isLoggedIn && (
+          <section
+            style={{
+              marginBottom: "45px",
+            }}
+          >
+            <div
+              className="card"
+              style={{
+                borderRadius: "20px",
+                padding: "24px",
+                marginBottom: "20px",
+              }}
+            >
+              <h2>
+                👋 Welcome back
+              </h2>
+
+              <p className="muted">
+                Your dog's care at a glance.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "20px",
+                  flexWrap: "wrap",
+                  marginTop: "15px",
+                }}
+              >
+                <div>
+                  <strong>
+                    {isPremium
+                      ? "⭐ Premium Plan"
+                      : "🐶 Basic Plan"}
+                  </strong>
+
+                  <p
+                    className="muted"
+                    style={{
+                      margin: "5px 0 0",
+                    }}
+                  >
+                    {isPremium
+                      ? "Your Premium subscription is active."
+                      : "Your Basic dog-care plan is active."}
+                  </p>
+                </div>
+
+                <Link
+                  className="btn"
+                  href="/dashboard"
+                >
+                  Open Dashboard →
+                </Link>
+              </div>
+            </div>
+
+            {/* STATS */}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "15px",
+              }}
+            >
+              <div
+                className="card"
+                style={{
+                  textAlign: "center",
+                  borderRadius: "18px",
+                }}
+              >
+                <div style={{ fontSize: "30px" }}>
+                  🐾
+                </div>
+
+                <h2>{dogs.length}</h2>
+
+                <strong>Dogs</strong>
+
+                <p className="muted">
+                  Your furry family members
+                </p>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  textAlign: "center",
+                  borderRadius: "18px",
+                }}
+              >
+                <div style={{ fontSize: "30px" }}>
+                  ❤️
+                </div>
+
+                <h2>{healthCount}</h2>
+
+                <strong>Health Records</strong>
+
+                <p className="muted">
+                  Keep track of health history
+                </p>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  textAlign: "center",
+                  borderRadius: "18px",
+                }}
+              >
+                <div style={{ fontSize: "30px" }}>
+                  💉
+                </div>
+
+                <h2>{vaccineCount}</h2>
+
+                <strong>Vaccines</strong>
+
+                <p className="muted">
+                  Stay up to date
+                </p>
+              </div>
+
+              <Link
+                href="/ai-assistant"
+                className="card"
+                style={{
+                  textAlign: "center",
+                  borderRadius: "18px",
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ fontSize: "30px" }}>
+                  🤖
+                </div>
+
+                <h2>AI</h2>
+
+                <strong>AI Assistant</strong>
+
+                <p className="muted">
+                  Get help with your dog's care →
+                </p>
+              </Link>
+            </div>
+
+            {/* ADD DOG */}
+
+            <div
+              className="card"
+              style={{
+                marginTop: "20px",
+                borderRadius: "18px",
+                textAlign: "center",
+              }}
+            >
+              <h2>
+                ➕ Add your dog
+              </h2>
+
+              <p className="muted">
+                Start tracking your dog's health and care.
+              </p>
+
+              <Link
+                className="btn primary"
+                href="/dashboard"
+              >
+                Add dog →
+              </Link>
+            </div>
+
+            {/* YOUR DOGS */}
+
+            <div style={{ marginTop: "25px" }}>
+              <h2>
+                🐾 Your dogs
+              </h2>
+
+              <p className="muted">
+                Manage your dogs and view their profiles.
+              </p>
+
+              {dogs.length > 0 ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(250px, 1fr))",
+                    gap: "15px",
+                  }}
+                >
+                  {dogs.map((dog) => (
+                    <div
+                      className="card"
+                      key={dog.id}
+                      style={{
+                        borderRadius: "18px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "32px",
+                        }}
+                      >
+                        🐶
+                      </div>
+
+                      <h3>
+                        {dog.name}
+                      </h3>
+
+                      <p className="muted">
+                        {dog.breed || "Dog"}
+                      </p>
+
+                      <Link
+                        className="btn"
+                        href={`/dogs/${dog.id}`}
+                      >
+                        View profile →
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="card"
+                  style={{
+                    borderRadius: "18px",
+                  }}
+                >
+                  <p className="muted">
+                    You haven't added a dog yet.
+                  </p>
+
+                  <Link
+                    className="btn primary"
+                    href="/dashboard"
+                  >
+                    Add your first dog →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ===================================================== */}
         {/* FEATURES */}
+        {/* ===================================================== */}
 
         <section>
           <h2
@@ -176,7 +564,9 @@ export default function Home() {
 
         <br />
 
+        {/* ===================================================== */}
         {/* PRICING */}
+        {/* ===================================================== */}
 
         <section>
           <div
@@ -209,7 +599,9 @@ export default function Home() {
             }}
           >
 
-            {/* ================= BASIC ================= */}
+            {/* ================================================= */}
+            {/* BASIC */}
+            {/* ================================================= */}
 
             <div
               className="card"
@@ -320,7 +712,9 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* ================= PREMIUM ================= */}
+            {/* ================================================= */}
+            {/* PREMIUM */}
+            {/* ================================================= */}
 
             <div
               className="card"
@@ -465,13 +859,14 @@ export default function Home() {
                 ⭐ Get Premium →
               </Link>
             </div>
-
           </section>
         </section>
 
         <br />
 
+        {/* ===================================================== */}
         {/* TRUST */}
+        {/* ===================================================== */}
 
         <section
           style={{
@@ -527,7 +922,9 @@ export default function Home() {
 
         <br />
 
+        {/* ===================================================== */}
         {/* FINAL CTA */}
+        {/* ===================================================== */}
 
         <section
           className="hero"
@@ -545,9 +942,11 @@ export default function Home() {
 
           <Link
             className="btn primary"
-            href="/login"
+            href={isLoggedIn ? "/dashboard" : "/login"}
           >
-            Get Started →
+            {isLoggedIn
+              ? "Go to Dashboard →"
+              : "Get Started →"}
           </Link>
         </section>
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 import { createClient } from "../../lib/supabase";
 import { hasPremiumAccess } from "../../lib/planAccess";
-
+import PushNotifications from "../components/PushNotifications";
 export default function DashboardPage() {
   const sb = createClient();
   const router = useRouter();
@@ -533,6 +533,7 @@ export default function DashboardPage() {
             <p className="muted">
               Important dog-care reminders and alerts
             </p>
+            <PushNotifications dogId={dogs[0]?.id} />
             <button
               className="btn primary"
               type="button"
