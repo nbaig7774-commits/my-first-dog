@@ -16,8 +16,10 @@ export default function DashboardPage() {
   const [vaccinations, setVaccinations] = useState([]);
 
   const [subscriptionPlan, setSubscriptionPlan] = useState("none");
-  const [subscriptionStatus, setSubscriptionStatus] = useState("inactive");
-  const [subscriptionInterval, setSubscriptionInterval] = useState(null);
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState("inactive");
+  const [subscriptionInterval, setSubscriptionInterval] =
+    useState(null);
 
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
@@ -26,7 +28,8 @@ export default function DashboardPage() {
   const [msg, setMsg] = useState("");
 
   const [basicBilling, setBasicBilling] = useState("monthly");
-  const [premiumBilling, setPremiumBilling] = useState("monthly");
+  const [premiumBilling, setPremiumBilling] =
+    useState("monthly");
 
   async function loadDashboard() {
     setLoading(true);
@@ -51,14 +54,24 @@ export default function DashboardPage() {
       .maybeSingle();
 
     if (profile) {
-      setSubscriptionPlan(profile.subscription_plan || "none");
-      setSubscriptionStatus(profile.subscription_status || "inactive");
-      setSubscriptionInterval(profile.subscription_interval || null);
+      setSubscriptionPlan(
+        profile.subscription_plan || "none"
+      );
+
+      setSubscriptionStatus(
+        profile.subscription_status || "inactive"
+      );
+
+      setSubscriptionInterval(
+        profile.subscription_interval || null
+      );
     }
 
     const { data: dogData, error: dogsError } = await sb
       .from("dogs")
-      .select("id, name, breed, created_at")
+      .select(
+        "id, name, breed, weight, height, vet_name, created_at"
+      )
       .order("created_at", { ascending: true });
 
     if (dogsError) {
@@ -69,26 +82,35 @@ export default function DashboardPage() {
 
     setDogs(dogData || []);
 
-    const [healthResult, vaccineResult] = await Promise.all([
-      sb
-        .from("health_records")
-        .select("id, dog_id, title, record_date, notes, created_at")
-        .order("record_date", { ascending: false }),
+    const [healthResult, vaccineResult] =
+      await Promise.all([
+        sb
+          .from("health_records")
+          .select(
+            "id, dog_id, title, record_date, notes, created_at"
+          )
+          .order("record_date", { ascending: false }),
 
-      sb
-        .from("vaccinations")
-        .select(
-          "id, dog_id, vaccine_name, vaccination_date, due_date, status, notes, created_at"
-        )
-        .order("vaccination_date", { ascending: false }),
-    ]);
+        sb
+          .from("vaccinations")
+          .select(
+            "id, dog_id, vaccine_name, vaccination_date, due_date, status, notes, created_at"
+          )
+          .order("vaccination_date", {
+            ascending: false,
+          }),
+      ]);
 
     setHealthRecords(
-      healthResult.error ? [] : healthResult.data || []
+      healthResult.error
+        ? []
+        : healthResult.data || []
     );
 
     setVaccinations(
-      vaccineResult.error ? [] : vaccineResult.data || []
+      vaccineResult.error
+        ? []
+        : vaccineResult.data || []
     );
 
     setLoading(false);
@@ -148,7 +170,6 @@ export default function DashboardPage() {
       setMsg(
         `Basic ${billing} selected. Your first 3 months are FREE. Paddle checkout will be connected during payment setup.`
       );
-      return;
     }
 
     if (plan === "Premium") {
@@ -158,7 +179,8 @@ export default function DashboardPage() {
     }
   }
 
-  const isActive = subscriptionStatus === "active";
+  const isActive =
+    subscriptionStatus === "active";
 
   const isPremium =
     isActive && hasPremiumAccess(subscriptionPlan);
@@ -176,8 +198,6 @@ export default function DashboardPage() {
           paddingBottom: "60px",
         }}
       >
-        {/* HEADER */}
-
         <div
           style={{
             display: "flex",
@@ -203,8 +223,6 @@ export default function DashboardPage() {
             Log out
           </button>
         </div>
-
-        {/* ACTIVE PLAN */}
 
         {isBasic && (
           <section
@@ -252,15 +270,15 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* PRICING */}
-
         <section
           style={{
             textAlign: "center",
             marginTop: "28px",
           }}
         >
-          <h1>🐾 Choose the Best Plan for Your Dog</h1>
+          <h1>
+            🐾 Choose the Best Plan for Your Dog
+          </h1>
 
           <p className="muted">
             Simple. Flexible. Complete.
@@ -276,8 +294,6 @@ export default function DashboardPage() {
             marginTop: "26px",
           }}
         >
-          {/* BASIC CARD */}
-
           <div
             className="card"
             style={{
@@ -345,7 +361,9 @@ export default function DashboardPage() {
                 <input
                   type="radio"
                   name="basicBilling"
-                  checked={basicBilling === "monthly"}
+                  checked={
+                    basicBilling === "monthly"
+                  }
                   onChange={() =>
                     setBasicBilling("monthly")
                   }
@@ -362,7 +380,9 @@ export default function DashboardPage() {
                 <input
                   type="radio"
                   name="basicBilling"
-                  checked={basicBilling === "annual"}
+                  checked={
+                    basicBilling === "annual"
+                  }
                   onChange={() =>
                     setBasicBilling("annual")
                   }
@@ -371,51 +391,15 @@ export default function DashboardPage() {
               </label>
             </div>
 
-            <div
-              style={{
-                padding: "15px",
-                marginTop: "18px",
-                borderRadius: "15px",
-                background: "#f7fbff",
-              }}
-            >
-              <h3>Everyday Dog Care</h3>
+            <h3>Everyday Dog Care</h3>
 
-              <p>🐾 ✓ Dog Profile</p>
-              <p className="muted">
-                Name and breed
-              </p>
-
-              <p>❤️ ✓ Health Management</p>
-              <p className="muted">
-                Health records and timeline
-              </p>
-
-              <p>💉 ✓ Vaccination Management</p>
-              <p className="muted">
-                Vaccines and due dates
-              </p>
-
-              <p>💊 ✓ Medication Management</p>
-              <p className="muted">
-                Medication and treatment information
-              </p>
-
-              <p>🔄 ✓ Routine Management</p>
-              <p className="muted">
-                Daily routines and care schedules
-              </p>
-
-              <p>📅 ✓ Vet Appointment Management</p>
-              <p className="muted">
-                Appointment records and vet details
-              </p>
-
-              <p>🤖 ✓ AI Care Assistant</p>
-              <p className="muted">
-                Basic dog-care questions and guidance
-              </p>
-            </div>
+            <p>🐾 ✓ Dog Profile</p>
+            <p>❤️ ✓ Health Management</p>
+            <p>💉 ✓ Vaccination Management</p>
+            <p>💊 ✓ Medication Management</p>
+            <p>🔄 ✓ Routine Management</p>
+            <p>📅 ✓ Vet Appointment Management</p>
+            <p>🤖 ✓ AI Care Assistant</p>
 
             <button
               className="btn primary"
@@ -425,14 +409,15 @@ export default function DashboardPage() {
                 marginTop: "20px",
               }}
               onClick={() =>
-                selectPlan("Basic", basicBilling)
+                selectPlan(
+                  "Basic",
+                  basicBilling
+                )
               }
             >
               🎁 Start 3 Months Free →
             </button>
           </div>
-
-          {/* PREMIUM CARD */}
 
           <div
             className="card"
@@ -504,7 +489,9 @@ export default function DashboardPage() {
                 <input
                   type="radio"
                   name="premiumBilling"
-                  checked={premiumBilling === "monthly"}
+                  checked={
+                    premiumBilling === "monthly"
+                  }
                   onChange={() =>
                     setPremiumBilling("monthly")
                   }
@@ -521,7 +508,9 @@ export default function DashboardPage() {
                 <input
                   type="radio"
                   name="premiumBilling"
-                  checked={premiumBilling === "annual"}
+                  checked={
+                    premiumBilling === "annual"
+                  }
                   onChange={() =>
                     setPremiumBilling("annual")
                   }
@@ -530,57 +519,20 @@ export default function DashboardPage() {
               </label>
             </div>
 
-            <div
-              style={{
-                padding: "15px",
-                marginTop: "18px",
-                borderRadius: "15px",
-                background: "#fffaf0",
-              }}
-            >
-              <h3>Complete Dog Care</h3>
+            <h3>Complete Dog Care</h3>
 
-              <p>🐾 ✓ Dog Profile</p>
-              <p className="muted">
-                Complete dog information
-              </p>
-
-              <p>❤️ ✓ Health Management</p>
-              <p className="muted">
-                Complete health history
-              </p>
-
-              <p>💉 ✓ Vaccination Management</p>
-              <p className="muted">
-                Vaccines, dates and reminders
-              </p>
-
-              <p>💊 ✓ Medication Management</p>
-              <p className="muted">
-                Medication and treatment tracking
-              </p>
-
-              <p>🔄 ✓ Routine Management</p>
-              <p className="muted">
-                Daily routines and schedules
-              </p>
-
-              <p>📅 ✓ Vet Appointment Management</p>
-              <p className="muted">
-                Appointments and vet details
-              </p>
-
-              <p>🤖 ✓ Premium AI Care Assistant</p>
-              <p className="muted">
-                Advanced personalized dog-care guidance
-              </p>
-
-              <p>📧 ✓ Email Reminders</p>
-              <p className="muted">
-                Appointment, vaccination and medication reminders
-              </p>
-            </div>
-
+            <p>🐾 ✓ Dog Profile</p>
+            <p>❤️ ✓ Health Management</p>
+            <p>💉 ✓ Vaccination Management</p>
+            <p>💊 ✓ Medication Management</p>
+            <p>🔄 ✓ Routine Management</p>
+            <p>📅 ✓ Vet Appointment Management</p>
+            <p>🤖 ✓ Premium AI Care Assistant</p>
+            <p>📧 ✓ Email Reminders</p>
+            <p>🔔 ✓ Push Notifications</p>
+            <p className="muted">
+              Important dog-care reminders and alerts
+            </p>
             <button
               className="btn primary"
               type="button"
@@ -589,15 +541,16 @@ export default function DashboardPage() {
                 marginTop: "20px",
               }}
               onClick={() =>
-                selectPlan("Premium", premiumBilling)
+                selectPlan(
+                  "Premium",
+                  premiumBilling
+                )
               }
             >
               ⭐ Choose Premium →
             </button>
           </div>
         </section>
-
-        {/* MESSAGE */}
 
         {msg && (
           <div
@@ -610,8 +563,6 @@ export default function DashboardPage() {
             <p>{msg}</p>
           </div>
         )}
-
-        {/* STATS */}
 
         <section
           style={{
@@ -665,9 +616,7 @@ export default function DashboardPage() {
               router.push("/ai-assistant")
             }
           >
-            <div className="stat">
-              🤖
-            </div>
+            <div className="stat">🤖</div>
 
             <strong>AI Assistant</strong>
 
@@ -676,8 +625,6 @@ export default function DashboardPage() {
             </p>
           </div>
         </section>
-
-        {/* ADD DOG + YOUR DOGS */}
 
         <section
           style={{
@@ -794,6 +741,419 @@ export default function DashboardPage() {
               ))
             )}
           </div>
+        </section>
+
+        {/* DOG COMPARISON */}
+
+        <section
+          className="card"
+          style={{
+            marginTop: "24px",
+            width: "100%",
+            overflowX: "auto",
+          }}
+        >
+          <h2>🐶 Compare Your Dogs</h2>
+
+          <p className="muted">
+            Compare your dogs' health and care information side by side.
+          </p>
+
+          {dogs.length < 2 ? (
+            <p
+              className="muted"
+              style={{
+                marginTop: "16px",
+              }}
+            >
+              Add at least two dogs to compare them.
+            </p>
+          ) : (
+            <div
+              style={{
+                marginTop: "18px",
+                overflowX: "auto",
+                border: "1px solid #e1ebe7",
+                borderRadius: "14px",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  minWidth: "760px",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "16px",
+                        borderBottom:
+                          "1px solid #e1ebe7",
+                      }}
+                    >
+                      Information
+                    </th>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <th
+                          key={dog.id}
+                          style={{
+                            textAlign: "left",
+                            padding: "16px",
+                            borderBottom:
+                              "1px solid #e1ebe7",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          🐶 {dog.name}
+                        </th>
+                      ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      🐾 Breed
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-breed`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          {dog.breed || "Not set"}
+                        </td>
+                      ))}
+                  </tr>
+
+                  <tr
+                    style={{
+                      background: "#fafdfc",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      ⚖️ Weight
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-weight`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          {dog.weight
+                            ? `${dog.weight} kg`
+                            : "Not recorded"}
+                        </td>
+                      ))}
+                  </tr>
+
+                  <tr>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      📏 Height
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-height`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          {dog.height
+                            ? `${dog.height} cm`
+                            : "Not recorded"}
+                        </td>
+                      ))}
+                  </tr>
+
+                  <tr
+                    style={{
+                      background: "#fafdfc",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      🩺 Vet
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-vet`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          {dog.vet_name || "Not set"}
+                        </td>
+                      ))}
+                  </tr>
+
+                  <tr>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      ❤️ Health Records
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => {
+                        const count =
+                          healthRecords.filter(
+                            (record) =>
+                              record.dog_id === dog.id
+                          ).length;
+
+                        return (
+                          <td
+                            key={`${dog.id}-health`}
+                            style={{
+                              padding: "14px 16px",
+                              borderLeft:
+                                "1px solid #e1ebe7",
+                            }}
+                          >
+                            {count}
+                          </td>
+                        );
+                      })}
+                  </tr>
+
+                  <tr
+                    style={{
+                      background: "#fafdfc",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      💉 Vaccines
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => {
+                        const count =
+                          vaccinations.filter(
+                            (vaccine) =>
+                              vaccine.dog_id === dog.id
+                          ).length;
+
+                        return (
+                          <td
+                            key={`${dog.id}-vaccines`}
+                            style={{
+                              padding: "14px 16px",
+                              borderLeft:
+                                "1px solid #e1ebe7",
+                            }}
+                          >
+                            {count}
+                          </td>
+                        );
+                      })}
+                  </tr>
+
+                  <tr>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      📅 Next Vaccine Due
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => {
+                        const dogVaccines =
+                          vaccinations
+                            .filter(
+                              (vaccine) =>
+                                vaccine.dog_id ===
+                                dog.id &&
+                                vaccine.due_date
+                            )
+                            .sort(
+                              (a, b) =>
+                                new Date(
+                                  a.due_date
+                                ) -
+                                new Date(
+                                  b.due_date
+                                )
+                            );
+
+                        const nextVaccine =
+                          dogVaccines[0];
+
+                        return (
+                          <td
+                            key={`${dog.id}-next-vaccine`}
+                            style={{
+                              padding: "14px 16px",
+                              borderLeft:
+                                "1px solid #e1ebe7",
+                            }}
+                          >
+                            {nextVaccine
+                              ? new Date(
+                                nextVaccine.due_date
+                              ).toLocaleDateString()
+                              : "None scheduled"}
+                          </td>
+                        );
+                      })}
+                  </tr>
+
+                  <tr
+                    style={{
+                      background: "#fafdfc",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      📅 Vet Appointments
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-appointments`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/appointments?dog=${dog.id}`
+                              )
+                            }
+                          >
+                            View appointments →
+                          </button>
+                        </td>
+                      ))}
+                  </tr>
+
+                  <tr>
+                    <td
+                      style={{
+                        padding: "14px 16px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      👤 Profile
+                    </td>
+
+                    {dogs
+                      .slice(0, 2)
+                      .map((dog) => (
+                        <td
+                          key={`${dog.id}-profile`}
+                          style={{
+                            padding: "14px 16px",
+                            borderLeft:
+                              "1px solid #e1ebe7",
+                          }}
+                        >
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/dogs/${dog.id}`
+                              )
+                            }
+                          >
+                            View profile →
+                          </button>
+                        </td>
+                      ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {dogs.length > 2 && (
+            <p
+              className="muted"
+              style={{
+                marginTop: "14px",
+              }}
+            >
+              Showing the first two dogs. Additional dogs can be
+              managed from the Your Dogs section above.
+            </p>
+          )}
         </section>
       </main>
     </>
