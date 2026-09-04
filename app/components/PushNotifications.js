@@ -216,17 +216,28 @@ export default function PushNotifications({ dogId }) {
                 );
                 return;
             }
-
             if (result.sent > 0) {
                 setMessage(
                     "✅ Test push notification sent successfully!"
                 );
             } else {
+                const errorDetails = Array.isArray(result.errors)
+                    ? result.errors
+                        .map(
+                            (item) =>
+                                `${item.statusCode || "Unknown"}: ${item.message || "Unknown push error"
+                                }`
+                        )
+                        .join(" | ")
+                    : "";
+
                 setMessage(
+                    errorDetails ||
                     result?.message ||
                     "No push notification was sent."
                 );
             }
+
         } catch (error) {
             console.error(
                 "TEST PUSH ERROR:",
