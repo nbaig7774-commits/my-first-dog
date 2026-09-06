@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -27,6 +28,19 @@ function formatSimpleDate(value) {
     return new Date(value).toLocaleDateString("en-US", {
         dateStyle: "medium",
     });
+}
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 async function notificationAlreadySent(
@@ -88,100 +102,91 @@ async function sendReminderEmail({
         subject,
 
         html: `
-      <!DOCTYPE html>
-
-      <html>
-        <body
+<!DOCTYPE html>
+<html>
+  <body
+    style="
+      margin:0;
+      padding:0;
+      background:#f5f7fa;
+      font-family:Arial,sans-serif;
+    "
+  >
+    <div
+      style="
+        max-width:650px;
+        margin:0 auto;
+        padding:30px 15px;
+      "
+    >
+      <div
+        style="
+          background:#ffffff;
+          border-radius:18px;
+          padding:30px;
+          box-shadow:0 4px 20px rgba(0,0,0,0.06);
+        "
+      >
+        <h1
           style="
-            margin:0;
-            padding:0;
-            background:#f5f7fa;
-            font-family:Arial,sans-serif;
+            margin-top:0;
+            margin-bottom:10px;
           "
         >
+          🐶 My First Dog
+        </h1>
 
-          <div
-            style="
-              max-width:650px;
-              margin:0 auto;
-              padding:30px 15px;
-            "
-          >
+        <p
+          style="
+            color:#666;
+            margin-top:0;
+          "
+        >
+          Dog Care Reminder
+        </p>
 
-            <div
-              style="
-                background:#ffffff;
-                border-radius:18px;
-                padding:30px;
-                box-shadow:0 4px 20px rgba(0,0,0,0.06);
-              "
-            >
+        <hr />
 
-              <h1
-                style="
-                  margin-top:0;
-                  margin-bottom:10px;
-                "
-              >
-                🐶 My First Dog
-              </h1>
+        <h2>${escapeHtml(title)}</h2>
 
-              <p
-                style="
-                  color:#666;
-                  margin-top:0;
-                "
-              >
-                Dog Care Reminder
-              </p>
+        <p>
+          This is a reminder for
+          <strong>${escapeHtml(dogName)}</strong>.
+        </p>
 
-              <hr />
+        ${content}
 
-              <h2>
-                ${title}
-              </h2>
+        <hr
+          style="
+            margin-top:30px;
+            margin-bottom:20px;
+          "
+        />
 
-              <p>
-                This is a reminder for
-                <strong>${dogName}</strong>.
-              </p>
+        <p
+          style="
+            font-size:13px;
+            color:#777;
+          "
+        >
+          This reminder is for organization
+          and monitoring only. It does not
+          provide veterinary diagnosis or
+          replace professional veterinary advice.
+        </p>
 
-              ${content}
-
-              <hr
-                style="
-                  margin-top:30px;
-                  margin-bottom:20px;
-                "
-              />
-
-              <p
-                style="
-                  font-size:13px;
-                  color:#777;
-                "
-              >
-                This reminder is for organization
-                and monitoring only. It does not
-                provide veterinary diagnosis or
-                replace professional veterinary advice.
-              </p>
-
-              <p
-                style="
-                  font-size:13px;
-                  color:#777;
-                "
-              >
-                🐾 My First Dog
-              </p>
-
-            </div>
-
-          </div>
-
-        </body>
-      </html>
+        <p
+          style="
+            font-size:13px;
+            color:#777;
+          "
+        >
+          🐾 My First Dog
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
     `,
     });
 
@@ -195,6 +200,216 @@ async function sendReminderEmail({
     return result;
 }
 
+async function sendPushNotifications({
+    ownerId,
+    dogId,
+    title,
+    message,
+    url = "/dashboard",
+    tag,
+}) {
+    if (
+        !process.env.VAPID_PUBLIC_KEY ||
+        !process.env.VAPID_PRIVATE_KEY ||
+        !process.env.VAPID_SUBJECT
+    ) {
+        throw new Error(
+            "VAPID environment variables are missing."
+        );
+    }
+
+    webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT,
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+
+    const {
+        data: subscriptions,
+        error,
+    } = await supabaseAdmin
+        .from("push_subscriptions")
+        .select(
+            "id, endpoint, p256dh, auth"
+        )
+        .eq("user_id", ownerId)
+        .eq("dog_id", dogId);
+
+    if (error) {
+        throw new Error(
+            `Unable to load push subscriptions: ${error.message}`
+        );
+    }
+
+    if (!subscriptions?.length) {
+        return {
+            sent: 0,
+            removed: 0,
+            errors: [],
+        };
+    }
+
+    let sent = 0;
+    let removed = 0;
+    const errors = [];
+
+    const payload = JSON.stringify({
+        title,
+        body: message,
+        url,
+        tag:
+            tag ||
+            "my-first-dog-reminder",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+    });
+
+    for (const subscription of subscriptions) {
+        try {
+            await webpush.sendNotification(
+                {
+                    endpoint: subscription.endpoint,
+                    keys: {
+                        p256dh: subscription.p256dh,
+                        auth: subscription.auth,
+                    },
+                },
+                payload
+            );
+
+            sent++;
+        } catch (error) {
+            console.error(
+                "Push notification error:",
+                error
+            );
+
+            errors.push(
+                error?.message ||
+                "Push notification failed."
+            );
+
+            const statusCode =
+                error?.statusCode;
+
+            if (
+                statusCode === 404 ||
+                statusCode === 410
+            ) {
+                await supabaseAdmin
+                    .from("push_subscriptions")
+                    .delete()
+                    .eq("id", subscription.id);
+
+                removed++;
+            }
+        }
+    }
+
+    return {
+        sent,
+        removed,
+        errors,
+    };
+}
+
+async function sendChannels({
+    preferences,
+    email,
+    dog,
+    notificationType,
+    referenceId,
+    emailData,
+    pushTitle,
+    pushMessage,
+    pushUrl,
+    pushTag,
+}) {
+    let emailSent = false;
+    let pushSent = false;
+    let pushRemoved = 0;
+
+    const channelErrors = [];
+
+    // ------------------------------------------
+    // EMAIL
+    // ------------------------------------------
+
+    if (
+        preferences.email_notifications === true
+    ) {
+        try {
+            await sendReminderEmail({
+                to: email,
+                dogName: dog.name,
+                ...emailData,
+            });
+
+            emailSent = true;
+        } catch (error) {
+            channelErrors.push(
+                `Email: ${error?.message ||
+                "Email sending failed."
+                }`
+            );
+        }
+    }
+
+    // ------------------------------------------
+    // PUSH
+    // ------------------------------------------
+
+    if (
+        preferences.push_notifications === true
+    ) {
+        try {
+            const pushResult =
+                await sendPushNotifications({
+                    ownerId: dog.owner_id,
+                    dogId: dog.id,
+                    title: pushTitle,
+                    message: pushMessage,
+                    url: pushUrl,
+                    tag: pushTag,
+                });
+
+            pushSent =
+                pushResult.sent > 0;
+
+            pushRemoved =
+                pushResult.removed || 0;
+
+            if (
+                pushResult.errors?.length
+            ) {
+                channelErrors.push(
+                    ...pushResult.errors.map(
+                        (error) =>
+                            `Push: ${error}`
+                    )
+                );
+            }
+        } catch (error) {
+            channelErrors.push(
+                `Push: ${error?.message ||
+                "Push sending failed."
+                }`
+            );
+        }
+    }
+
+    const anythingSent =
+        emailSent || pushSent;
+
+    return {
+        emailSent,
+        pushSent,
+        pushRemoved,
+        anythingSent,
+        channelErrors,
+    };
+}
+
 export async function GET(request) {
     try {
         // ==========================================
@@ -205,7 +420,9 @@ export async function GET(request) {
             process.env.CRON_SECRET;
 
         const authorization =
-            request.headers.get("authorization");
+            request.headers.get(
+                "authorization"
+            );
 
         if (!cronSecret) {
             return Response.json(
@@ -239,42 +456,31 @@ export async function GET(request) {
         // ENVIRONMENT CHECK
         // ==========================================
 
-        if (!process.env.RESEND_API_KEY) {
-            return Response.json(
-                {
-                    success: false,
-                    error:
-                        "RESEND_API_KEY is missing.",
-                },
-                {
-                    status: 500,
-                }
+        const requiredEnvironment = [
+            "RESEND_API_KEY",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "VAPID_PUBLIC_KEY",
+            "VAPID_PRIVATE_KEY",
+            "VAPID_SUBJECT",
+        ];
+
+        const missingEnvironment =
+            requiredEnvironment.filter(
+                (name) =>
+                    !process.env[name]
             );
-        }
 
         if (
-            !process.env.NEXT_PUBLIC_SUPABASE_URL
+            missingEnvironment.length > 0
         ) {
             return Response.json(
                 {
                     success: false,
                     error:
-                        "NEXT_PUBLIC_SUPABASE_URL is missing.",
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
-
-        if (
-            !process.env.SUPABASE_SERVICE_ROLE_KEY
-        ) {
-            return Response.json(
-                {
-                    success: false,
-                    error:
-                        "SUPABASE_SERVICE_ROLE_KEY is missing.",
+                        "Missing environment variables.",
+                    missing:
+                        missingEnvironment,
                 },
                 {
                     status: 500,
@@ -283,27 +489,36 @@ export async function GET(request) {
         }
 
         // ==========================================
-        // TIME WINDOWS
+        // TIME
         // ==========================================
 
         const now = new Date();
 
-        // Appointments within next 24 hours
         const appointmentEnd =
             new Date(
                 now.getTime() +
-                24 * 60 * 60 * 1000
+                24 *
+                60 *
+                60 *
+                1000
             );
 
-        // Vaccinations due within next 7 days
         const vaccinationEnd =
             new Date(
                 now.getTime() +
-                7 * 24 * 60 * 60 * 1000
+                7 *
+                24 *
+                60 *
+                60 *
+                1000
             );
 
         let sent = 0;
         let skipped = 0;
+        let emailSent = 0;
+        let pushSent = 0;
+        let pushRemoved = 0;
+
         const errors = [];
 
         // ==========================================
@@ -331,9 +546,9 @@ export async function GET(request) {
 
         for (const dog of dogs || []) {
             try {
-                // ----------------------------------------
-                // LOAD PROFILE
-                // ----------------------------------------
+                // ========================================
+                // PROFILE
+                // ========================================
 
                 const {
                     data: profile,
@@ -359,23 +574,28 @@ export async function GET(request) {
                     profile.subscription_status ===
                     "active" &&
                     String(
-                        profile.subscription_plan || ""
-                    ).toLowerCase() === "premium";
+                        profile.subscription_plan ||
+                        ""
+                    ).toLowerCase() ===
+                    "premium";
 
                 if (!isPremium) {
                     skipped++;
                     continue;
                 }
 
-                // ----------------------------------------
-                // LOAD NOTIFICATION PREFERENCES
-                // ----------------------------------------
+                // ========================================
+                // NOTIFICATION PREFERENCES
+                // ========================================
 
                 const {
                     data: preferences,
-                    error: preferencesError,
+                    error:
+                    preferencesError,
                 } = await supabaseAdmin
-                    .from("notification_preferences")
+                    .from(
+                        "notification_preferences"
+                    )
                     .select("*")
                     .eq("dog_id", dog.id)
                     .maybeSingle();
@@ -388,21 +608,20 @@ export async function GET(request) {
                     continue;
                 }
 
-                // ----------------------------------------
-                // EMAIL MUST BE ENABLED
-                // ----------------------------------------
-
+                // Need at least one channel
                 if (
                     preferences.email_notifications !==
+                    true &&
+                    preferences.push_notifications !==
                     true
                 ) {
                     skipped++;
                     continue;
                 }
 
-                // ----------------------------------------
-                // GET USER EMAIL
-                // ----------------------------------------
+                // ========================================
+                // USER EMAIL
+                // ========================================
 
                 const {
                     data: userResult,
@@ -427,10 +646,14 @@ export async function GET(request) {
                 // APPOINTMENTS
                 // ========================================
 
-                {
+                if (
+                    preferences.appointment_reminders ===
+                    true
+                ) {
                     const {
                         data: appointments,
-                        error: appointmentError,
+                        error:
+                        appointmentError,
                     } = await supabaseAdmin
                         .from("appointments")
                         .select(
@@ -464,10 +687,8 @@ export async function GET(request) {
                             `Appointments for ${dog.name}: ${appointmentError.message}`
                         );
                     } else {
-                        for (
-                            const appointment of
-                            appointments || []
-                        ) {
+                        for (const appointment of
+                            appointments || []) {
                             const type =
                                 "appointment_reminder";
 
@@ -484,56 +705,117 @@ export async function GET(request) {
                                 continue;
                             }
 
-                            await sendReminderEmail({
-                                to: email,
-                                dogName: dog.name,
-                                subject:
-                                    `📅 Appointment Reminder — ${dog.name}`,
-                                title:
-                                    "📅 Upcoming Vet Appointment",
+                            const result =
+                                await sendChannels({
+                                    preferences,
+                                    email,
+                                    dog,
 
-                                content: `
-                  <p>
-                    <strong>Date & Time:</strong>
-                    ${formatDate(
-                                    appointment.appointment_at
-                                )}
-                  </p>
+                                    notificationType:
+                                        type,
 
-                  <p>
-                    <strong>Clinic:</strong>
-                    ${appointment.clinic_name ||
-                                    "Not provided"
-                                    }
-                  </p>
+                                    referenceId:
+                                        appointment.id,
 
-                  <p>
-                    <strong>Reason:</strong>
-                    ${appointment.reason ||
-                                    "Not provided"
-                                    }
-                  </p>
+                                    emailData: {
+                                        subject:
+                                            `📅 Appointment Reminder — ${dog.name}`,
 
-                  ${appointment.notes
-                                        ? `
+                                        title:
+                                            "📅 Upcoming Vet Appointment",
+
+                                        content: `
+                      <p>
+                        <strong>Date & Time:</strong>
+                        ${escapeHtml(
+                                            formatDate(
+                                                appointment.appointment_at
+                                            )
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Clinic:</strong>
+                        ${escapeHtml(
+                                            appointment.clinic_name ||
+                                            "Not provided"
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Reason:</strong>
+                        ${escapeHtml(
+                                            appointment.reason ||
+                                            "Not provided"
+                                        )}
+                      </p>
+
+                      ${appointment.notes
+                                                ? `
                         <p>
                           <strong>Notes:</strong>
-                          ${appointment.notes}
+                          ${escapeHtml(
+                                                    appointment.notes
+                                                )}
                         </p>
                       `
-                                        : ""
-                                    }
-                `,
-                            });
+                                                : ""
+                                            }
+                    `,
+                                    },
 
-                            await saveNotificationLog(
-                                dog.owner_id,
-                                dog.id,
-                                type,
-                                appointment.id
+                                    pushTitle:
+                                        `📅 Vet Appointment — ${dog.name}`,
+
+                                    pushMessage:
+                                        `Upcoming appointment ${appointment.clinic_name
+                                            ? `at ${appointment.clinic_name}`
+                                            : ""
+                                        } on ${formatDate(
+                                            appointment.appointment_at
+                                        )}.`,
+
+                                    pushUrl:
+                                        `/appointments?dog=${dog.id}`,
+
+                                    pushTag:
+                                        `appointment-${appointment.id}`,
+                                });
+
+                            if (
+                                result.anythingSent
+                            ) {
+                                await saveNotificationLog(
+                                    dog.owner_id,
+                                    dog.id,
+                                    type,
+                                    appointment.id
+                                );
+
+                                sent++;
+
+                                if (
+                                    result.emailSent
+                                ) {
+                                    emailSent++;
+                                }
+
+                                if (
+                                    result.pushSent
+                                ) {
+                                    pushSent++;
+                                }
+
+                                pushRemoved +=
+                                    result.pushRemoved;
+                            }
+
+                            errors.push(
+                                ...result.channelErrors.map(
+                                    (error) =>
+                                        `${dog.name} appointment: ${error}`
+                                )
                             );
-
-                            sent++;
                         }
                     }
                 }
@@ -548,7 +830,8 @@ export async function GET(request) {
                 ) {
                     const {
                         data: vaccinations,
-                        error: vaccinationError,
+                        error:
+                        vaccinationError,
                     } = await supabaseAdmin
                         .from("vaccinations")
                         .select(
@@ -583,10 +866,8 @@ export async function GET(request) {
                             `Vaccinations for ${dog.name}: ${vaccinationError.message}`
                         );
                     } else {
-                        for (
-                            const vaccination of
-                            vaccinations || []
-                        ) {
+                        for (const vaccination of
+                            vaccinations || []) {
                             const type =
                                 "vaccination_reminder";
 
@@ -603,56 +884,116 @@ export async function GET(request) {
                                 continue;
                             }
 
-                            await sendReminderEmail({
-                                to: email,
-                                dogName: dog.name,
-                                subject:
-                                    `💉 Vaccination Reminder — ${dog.name}`,
-                                title:
-                                    "💉 Upcoming Vaccination",
+                            const result =
+                                await sendChannels({
+                                    preferences,
+                                    email,
+                                    dog,
 
-                                content: `
-                  <p>
-                    <strong>Vaccine:</strong>
-                    ${vaccination.vaccine_name ||
-                                    "Not provided"
-                                    }
-                  </p>
+                                    notificationType:
+                                        type,
 
-                  <p>
-                    <strong>Due Date:</strong>
-                    ${formatSimpleDate(
-                                        vaccination.due_date
-                                    )}
-                  </p>
+                                    referenceId:
+                                        vaccination.id,
 
-                  <p>
-                    <strong>Status:</strong>
-                    ${vaccination.status ||
-                                    "Not provided"
-                                    }
-                  </p>
+                                    emailData: {
+                                        subject:
+                                            `💉 Vaccination Reminder — ${dog.name}`,
 
-                  ${vaccination.notes
-                                        ? `
+                                        title:
+                                            "💉 Upcoming Vaccination",
+
+                                        content: `
+                      <p>
+                        <strong>Vaccine:</strong>
+                        ${escapeHtml(
+                                            vaccination.vaccine_name ||
+                                            "Not provided"
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Due Date:</strong>
+                        ${escapeHtml(
+                                            formatSimpleDate(
+                                                vaccination.due_date
+                                            )
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Status:</strong>
+                        ${escapeHtml(
+                                            vaccination.status ||
+                                            "Not provided"
+                                        )}
+                      </p>
+
+                      ${vaccination.notes
+                                                ? `
                         <p>
                           <strong>Notes:</strong>
-                          ${vaccination.notes}
+                          ${escapeHtml(
+                                                    vaccination.notes
+                                                )}
                         </p>
                       `
-                                        : ""
-                                    }
-                `,
-                            });
+                                                : ""
+                                            }
+                    `,
+                                    },
 
-                            await saveNotificationLog(
-                                dog.owner_id,
-                                dog.id,
-                                type,
-                                vaccination.id
+                                    pushTitle:
+                                        `💉 Vaccination Due — ${dog.name}`,
+
+                                    pushMessage:
+                                        `${vaccination.vaccine_name ||
+                                        "Vaccination"
+                                        } is due on ${formatSimpleDate(
+                                            vaccination.due_date
+                                        )}.`,
+
+                                    pushUrl:
+                                        `/vaccinations?dog=${dog.id}`,
+
+                                    pushTag:
+                                        `vaccination-${vaccination.id}`,
+                                });
+
+                            if (
+                                result.anythingSent
+                            ) {
+                                await saveNotificationLog(
+                                    dog.owner_id,
+                                    dog.id,
+                                    type,
+                                    vaccination.id
+                                );
+
+                                sent++;
+
+                                if (
+                                    result.emailSent
+                                ) {
+                                    emailSent++;
+                                }
+
+                                if (
+                                    result.pushSent
+                                ) {
+                                    pushSent++;
+                                }
+
+                                pushRemoved +=
+                                    result.pushRemoved;
+                            }
+
+                            errors.push(
+                                ...result.channelErrors.map(
+                                    (error) =>
+                                        `${dog.name} vaccination: ${error}`
+                                )
                             );
-
-                            sent++;
                         }
                     }
                 }
@@ -667,7 +1008,8 @@ export async function GET(request) {
                 ) {
                     const {
                         data: medications,
-                        error: medicationError,
+                        error:
+                        medicationError,
                     } = await supabaseAdmin
                         .from("medications")
                         .select(
@@ -693,19 +1035,17 @@ export async function GET(request) {
                             `Medications for ${dog.name}: ${medicationError.message}`
                         );
                     } else {
-                        for (
-                            const medication of
-                            medications || []
-                        ) {
-                            if (!medication.schedule) {
+                        for (const medication of
+                            medications || []) {
+                            if (
+                                !medication.schedule
+                            ) {
                                 continue;
                             }
 
                             const type =
                                 "medication_reminder";
 
-                            // Only one medication email
-                            // every 24 hours.
                             const yesterday =
                                 new Date(
                                     now.getTime() -
@@ -717,7 +1057,8 @@ export async function GET(request) {
 
                             const {
                                 data: recentLogs,
-                                error: recentLogError,
+                                error:
+                                recentLogError,
                             } =
                                 await supabaseAdmin
                                     .from(
@@ -755,62 +1096,383 @@ export async function GET(request) {
                             }
 
                             if (
-                                (recentLogs || []).length >
-                                0
+                                (recentLogs || [])
+                                    .length > 0
                             ) {
                                 skipped++;
                                 continue;
                             }
 
-                            await sendReminderEmail({
-                                to: email,
-                                dogName: dog.name,
-                                subject:
-                                    `💊 Medication Reminder — ${dog.name}`,
-                                title:
-                                    "💊 Medication Reminder",
+                            const result =
+                                await sendChannels({
+                                    preferences,
+                                    email,
+                                    dog,
 
-                                content: `
-                  <p>
-                    <strong>Medication:</strong>
-                    ${medication.name}
-                  </p>
+                                    notificationType:
+                                        type,
 
-                  <p>
-                    <strong>Schedule:</strong>
-                    ${medication.schedule}
-                  </p>
+                                    referenceId:
+                                        medication.id,
 
-                  ${medication.duration
-                                        ? `
+                                    emailData: {
+                                        subject:
+                                            `💊 Medication Reminder — ${dog.name}`,
+
+                                        title:
+                                            "💊 Medication Reminder",
+
+                                        content: `
+                      <p>
+                        <strong>Medication:</strong>
+                        ${escapeHtml(
+                                            medication.name
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Schedule:</strong>
+                        ${escapeHtml(
+                                            medication.schedule
+                                        )}
+                      </p>
+
+                      ${medication.duration
+                                                ? `
                         <p>
                           <strong>Duration:</strong>
-                          ${medication.duration}
+                          ${escapeHtml(
+                                                    medication.duration
+                                                )}
                         </p>
                       `
-                                        : ""
-                                    }
+                                                : ""
+                                            }
 
-                  ${medication.notes
-                                        ? `
+                      ${medication.notes
+                                                ? `
                         <p>
                           <strong>Notes:</strong>
-                          ${medication.notes}
+                          ${escapeHtml(
+                                                    medication.notes
+                                                )}
                         </p>
                       `
-                                        : ""
-                                    }
-                `,
-                            });
+                                                : ""
+                                            }
+                    `,
+                                    },
 
-                            await saveNotificationLog(
-                                dog.owner_id,
-                                dog.id,
-                                type,
-                                medication.id
+                                    pushTitle:
+                                        `💊 Medication Reminder — ${dog.name}`,
+
+                                    pushMessage:
+                                        `Give ${medication.name
+                                        } according to the schedule: ${medication.schedule
+                                        }.`,
+
+                                    pushUrl:
+                                        `/medications?dog=${dog.id}`,
+
+                                    pushTag:
+                                        `medication-${medication.id}`,
+                                });
+
+                            if (
+                                result.anythingSent
+                            ) {
+                                await saveNotificationLog(
+                                    dog.owner_id,
+                                    dog.id,
+                                    type,
+                                    medication.id
+                                );
+
+                                sent++;
+
+                                if (
+                                    result.emailSent
+                                ) {
+                                    emailSent++;
+                                }
+
+                                if (
+                                    result.pushSent
+                                ) {
+                                    pushSent++;
+                                }
+
+                                pushRemoved +=
+                                    result.pushRemoved;
+                            }
+
+                            errors.push(
+                                ...result.channelErrors.map(
+                                    (error) =>
+                                        `${dog.name} medication: ${error}`
+                                )
                             );
+                        }
+                    }
+                }
 
-                            sent++;
+                // ========================================
+                // ROUTINES
+                // ========================================
+
+                if (
+                    preferences.routine_reminders ===
+                    true
+                ) {
+                    const {
+                        data: routines,
+                        error: routineError,
+                    } = await supabaseAdmin
+                        .from("routines")
+                        .select(
+                            `
+                id,
+                dog_id,
+                title,
+                time_of_day,
+                routine_type,
+                frequency,
+                active
+              `
+                        )
+                        .eq("dog_id", dog.id)
+                        .eq("active", true)
+                        .order(
+                            "time_of_day",
+                            {
+                                ascending: true,
+                            }
+                        );
+
+                    if (routineError) {
+                        errors.push(
+                            `Routines for ${dog.name}: ${routineError.message}`
+                        );
+                    } else {
+                        for (const routine of
+                            routines || []) {
+                            if (
+                                !routine.time_of_day
+                            ) {
+                                continue;
+                            }
+
+                            const frequency =
+                                String(
+                                    routine.frequency ||
+                                    "Daily"
+                                ).toLowerCase();
+
+                            // Daily routines run every day.
+                            // Weekly routines run once per week.
+                            // Monthly routines run once per month.
+                            let shouldRun =
+                                frequency ===
+                                "daily";
+
+                            if (
+                                frequency ===
+                                "weekly"
+                            ) {
+                                shouldRun =
+                                    now.getDay() ===
+                                    new Date(
+                                        routine.created_at ||
+                                        now
+                                    ).getDay();
+                            }
+
+                            if (
+                                frequency ===
+                                "monthly"
+                            ) {
+                                shouldRun =
+                                    now.getDate() ===
+                                    new Date(
+                                        routine.created_at ||
+                                        now
+                                    ).getDate();
+                            }
+
+                            if (
+                                frequency ===
+                                "as needed"
+                            ) {
+                                shouldRun = false;
+                            }
+
+                            if (!shouldRun) {
+                                continue;
+                            }
+
+                            // One routine reminder per routine
+                            // during each 24-hour period.
+                            const yesterday =
+                                new Date(
+                                    now.getTime() -
+                                    24 *
+                                    60 *
+                                    60 *
+                                    1000
+                                );
+
+                            const type =
+                                "routine_reminder";
+
+                            const {
+                                data: recentLogs,
+                                error:
+                                recentRoutineLogError,
+                            } =
+                                await supabaseAdmin
+                                    .from(
+                                        "notification_logs"
+                                    )
+                                    .select("id")
+                                    .eq(
+                                        "owner_id",
+                                        dog.owner_id
+                                    )
+                                    .eq(
+                                        "dog_id",
+                                        dog.id
+                                    )
+                                    .eq(
+                                        "notification_type",
+                                        type
+                                    )
+                                    .eq(
+                                        "reference_id",
+                                        routine.id
+                                    )
+                                    .gte(
+                                        "sent_at",
+                                        yesterday.toISOString()
+                                    )
+                                    .limit(1);
+
+                            if (
+                                recentRoutineLogError
+                            ) {
+                                errors.push(
+                                    `Routine log for ${dog.name}: ${recentRoutineLogError.message}`
+                                );
+
+                                continue;
+                            }
+
+                            if (
+                                (recentLogs || [])
+                                    .length > 0
+                            ) {
+                                skipped++;
+                                continue;
+                            }
+
+                            const result =
+                                await sendChannels({
+                                    preferences,
+                                    email,
+                                    dog,
+
+                                    notificationType:
+                                        type,
+
+                                    referenceId:
+                                        routine.id,
+
+                                    emailData: {
+                                        subject:
+                                            `🐾 Routine Reminder — ${dog.name}`,
+
+                                        title:
+                                            "🐾 Dog Routine Reminder",
+
+                                        content: `
+                      <p>
+                        <strong>Routine:</strong>
+                        ${escapeHtml(
+                                            routine.title
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Time:</strong>
+                        ${escapeHtml(
+                                            routine.time_of_day
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Type:</strong>
+                        ${escapeHtml(
+                                            routine.routine_type ||
+                                            "General care"
+                                        )}
+                      </p>
+
+                      <p>
+                        <strong>Frequency:</strong>
+                        ${escapeHtml(
+                                            routine.frequency ||
+                                            "Daily"
+                                        )}
+                      </p>
+                    `,
+                                    },
+
+                                    pushTitle:
+                                        `🐾 Routine Reminder — ${dog.name}`,
+
+                                    pushMessage:
+                                        `${routine.title} is scheduled for ${routine.time_of_day}.`,
+
+                                    pushUrl:
+                                        `/routines?dog=${dog.id}`,
+
+                                    pushTag:
+                                        `routine-${routine.id}`,
+                                });
+
+                            if (
+                                result.anythingSent
+                            ) {
+                                await saveNotificationLog(
+                                    dog.owner_id,
+                                    dog.id,
+                                    type,
+                                    routine.id
+                                );
+
+                                sent++;
+
+                                if (
+                                    result.emailSent
+                                ) {
+                                    emailSent++;
+                                }
+
+                                if (
+                                    result.pushSent
+                                ) {
+                                    pushSent++;
+                                }
+
+                                pushRemoved +=
+                                    result.pushRemoved;
+                            }
+
+                            errors.push(
+                                ...result.channelErrors.map(
+                                    (error) =>
+                                        `${dog.name} routine: ${error}`
+                                )
+                            );
                         }
                     }
                 }
@@ -821,7 +1483,7 @@ export async function GET(request) {
                 );
 
                 errors.push(
-                    `${dog.name}: ${dogError.message ||
+                    `${dog.name}: ${dogError?.message ||
                     "Unknown error"
                     }`
                 );
@@ -834,11 +1496,22 @@ export async function GET(request) {
 
         return Response.json({
             success: true,
+
             message:
-                "Email reminder check completed.",
+                "Premium dog-care reminder check completed.",
+
             sent,
+
+            emailSent,
+
+            pushSent,
+
+            pushRemoved,
+
             skipped,
+
             errors,
+
             checkedAt:
                 now.toISOString(),
         });
@@ -851,9 +1524,10 @@ export async function GET(request) {
         return Response.json(
             {
                 success: false,
+
                 error:
-                    error.message ||
-                    "Unable to process email reminders.",
+                    error?.message ||
+                    "Unable to process reminders.",
             },
             {
                 status: 500,
