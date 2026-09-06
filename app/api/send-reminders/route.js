@@ -59,7 +59,11 @@ async function notificationAlreadySent(
         .limit(1);
 
     if (error) {
-        console.error("Notification log check:", error);
+        console.error(
+            "Notification log check:",
+            error
+        );
+
         return false;
     }
 
@@ -82,7 +86,11 @@ async function saveNotificationLog(
         });
 
     if (error) {
-        console.error("Notification log save:", error);
+        console.error(
+            "Notification log save:",
+            error
+        );
+
         return false;
     }
 
@@ -187,7 +195,7 @@ async function sendReminderEmail({
     </div>
   </body>
 </html>
-    `,
+        `,
     });
 
     if (result.error) {
@@ -268,10 +276,14 @@ async function sendPushNotifications({
         try {
             await webpush.sendNotification(
                 {
-                    endpoint: subscription.endpoint,
+                    endpoint:
+                        subscription.endpoint,
+
                     keys: {
-                        p256dh: subscription.p256dh,
-                        auth: subscription.auth,
+                        p256dh:
+                            subscription.p256dh,
+                        auth:
+                            subscription.auth,
                     },
                 },
                 payload
@@ -297,9 +309,14 @@ async function sendPushNotifications({
                 statusCode === 410
             ) {
                 await supabaseAdmin
-                    .from("push_subscriptions")
+                    .from(
+                        "push_subscriptions"
+                    )
                     .delete()
-                    .eq("id", subscription.id);
+                    .eq(
+                        "id",
+                        subscription.id
+                    );
 
                 removed++;
             }
@@ -317,8 +334,6 @@ async function sendChannels({
     preferences,
     email,
     dog,
-    notificationType,
-    referenceId,
     emailData,
     pushTitle,
     pushMessage,
@@ -331,12 +346,13 @@ async function sendChannels({
 
     const channelErrors = [];
 
-    // ------------------------------------------
+    // ==========================================
     // EMAIL
-    // ------------------------------------------
+    // ==========================================
 
     if (
-        preferences.email_notifications === true
+        preferences.email_notifications ===
+        true
     ) {
         try {
             await sendReminderEmail({
@@ -355,12 +371,13 @@ async function sendChannels({
         }
     }
 
-    // ------------------------------------------
+    // ==========================================
     // PUSH
-    // ------------------------------------------
+    // ==========================================
 
     if (
-        preferences.push_notifications === true
+        preferences.push_notifications ===
+        true
     ) {
         try {
             const pushResult =
@@ -398,14 +415,12 @@ async function sendChannels({
         }
     }
 
-    const anythingSent =
-        emailSent || pushSent;
-
     return {
         emailSent,
         pushSent,
         pushRemoved,
-        anythingSent,
+        anythingSent:
+            emailSent || pushSent,
         channelErrors,
     };
 }
@@ -513,6 +528,15 @@ export async function GET(request) {
                 1000
             );
 
+        const yesterday =
+            new Date(
+                now.getTime() -
+                24 *
+                60 *
+                60 *
+                1000
+            );
+
         let sent = 0;
         let skipped = 0;
         let emailSent = 0;
@@ -558,7 +582,10 @@ export async function GET(request) {
                     .select(
                         "subscription_plan, subscription_status"
                     )
-                    .eq("id", dog.owner_id)
+                    .eq(
+                        "id",
+                        dog.owner_id
+                    )
                     .single();
 
                 if (
@@ -597,7 +624,10 @@ export async function GET(request) {
                         "notification_preferences"
                     )
                     .select("*")
-                    .eq("dog_id", dog.id)
+                    .eq(
+                        "dog_id",
+                        dog.id
+                    )
                     .maybeSingle();
 
                 if (
@@ -608,7 +638,6 @@ export async function GET(request) {
                     continue;
                 }
 
-                // Need at least one channel
                 if (
                     preferences.email_notifications !==
                     true &&
@@ -655,18 +684,23 @@ export async function GET(request) {
                         error:
                         appointmentError,
                     } = await supabaseAdmin
-                        .from("appointments")
+                        .from(
+                            "appointments"
+                        )
                         .select(
                             `
-                id,
-                dog_id,
-                appointment_at,
-                clinic_name,
-                reason,
-                notes
-              `
+                            id,
+                            dog_id,
+                            appointment_at,
+                            clinic_name,
+                            reason,
+                            notes
+                        `
                         )
-                        .eq("dog_id", dog.id)
+                        .eq(
+                            "dog_id",
+                            dog.id
+                        )
                         .gte(
                             "appointment_at",
                             now.toISOString()
@@ -678,17 +712,23 @@ export async function GET(request) {
                         .order(
                             "appointment_at",
                             {
-                                ascending: true,
+                                ascending:
+                                    true,
                             }
                         );
 
-                    if (appointmentError) {
+                    if (
+                        appointmentError
+                    ) {
                         errors.push(
                             `Appointments for ${dog.name}: ${appointmentError.message}`
                         );
                     } else {
-                        for (const appointment of
-                            appointments || []) {
+                        for (
+                            const appointment of
+                            appointments ||
+                            []
+                        ) {
                             const type =
                                 "appointment_reminder";
 
@@ -700,7 +740,9 @@ export async function GET(request) {
                                     appointment.id
                                 );
 
-                            if (alreadySent) {
+                            if (
+                                alreadySent
+                            ) {
                                 skipped++;
                                 continue;
                             }
@@ -711,12 +753,6 @@ export async function GET(request) {
                                     email,
                                     dog,
 
-                                    notificationType:
-                                        type,
-
-                                    referenceId:
-                                        appointment.id,
-
                                     emailData: {
                                         subject:
                                             `📅 Appointment Reminder — ${dog.name}`,
@@ -725,32 +761,32 @@ export async function GET(request) {
                                             "📅 Upcoming Vet Appointment",
 
                                         content: `
-                      <p>
-                        <strong>Date & Time:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Date & Time:</strong>
+                          ${escapeHtml(
                                             formatDate(
                                                 appointment.appointment_at
                                             )
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Clinic:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Clinic:</strong>
+                          ${escapeHtml(
                                             appointment.clinic_name ||
                                             "Not provided"
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Reason:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Reason:</strong>
+                          ${escapeHtml(
                                             appointment.reason ||
                                             "Not provided"
                                         )}
-                      </p>
+                        </p>
 
-                      ${appointment.notes
+                        ${appointment.notes
                                                 ? `
                         <p>
                           <strong>Notes:</strong>
@@ -758,10 +794,10 @@ export async function GET(request) {
                                                     appointment.notes
                                                 )}
                         </p>
-                      `
+                        `
                                                 : ""
                                             }
-                    `,
+                      `,
                                     },
 
                                     pushTitle:
@@ -833,19 +869,24 @@ export async function GET(request) {
                         error:
                         vaccinationError,
                     } = await supabaseAdmin
-                        .from("vaccinations")
+                        .from(
+                            "vaccinations"
+                        )
                         .select(
                             `
-                id,
-                dog_id,
-                vaccine_name,
-                vaccination_date,
-                due_date,
-                status,
-                notes
-              `
+                            id,
+                            dog_id,
+                            vaccine_name,
+                            vaccination_date,
+                            due_date,
+                            status,
+                            notes
+                        `
                         )
-                        .eq("dog_id", dog.id)
+                        .eq(
+                            "dog_id",
+                            dog.id
+                        )
                         .gte(
                             "due_date",
                             now.toISOString()
@@ -857,17 +898,23 @@ export async function GET(request) {
                         .order(
                             "due_date",
                             {
-                                ascending: true,
+                                ascending:
+                                    true,
                             }
                         );
 
-                    if (vaccinationError) {
+                    if (
+                        vaccinationError
+                    ) {
                         errors.push(
                             `Vaccinations for ${dog.name}: ${vaccinationError.message}`
                         );
                     } else {
-                        for (const vaccination of
-                            vaccinations || []) {
+                        for (
+                            const vaccination of
+                            vaccinations ||
+                            []
+                        ) {
                             const type =
                                 "vaccination_reminder";
 
@@ -879,7 +926,9 @@ export async function GET(request) {
                                     vaccination.id
                                 );
 
-                            if (alreadySent) {
+                            if (
+                                alreadySent
+                            ) {
                                 skipped++;
                                 continue;
                             }
@@ -890,12 +939,6 @@ export async function GET(request) {
                                     email,
                                     dog,
 
-                                    notificationType:
-                                        type,
-
-                                    referenceId:
-                                        vaccination.id,
-
                                     emailData: {
                                         subject:
                                             `💉 Vaccination Reminder — ${dog.name}`,
@@ -904,32 +947,32 @@ export async function GET(request) {
                                             "💉 Upcoming Vaccination",
 
                                         content: `
-                      <p>
-                        <strong>Vaccine:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Vaccine:</strong>
+                          ${escapeHtml(
                                             vaccination.vaccine_name ||
                                             "Not provided"
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Due Date:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Due Date:</strong>
+                          ${escapeHtml(
                                             formatSimpleDate(
                                                 vaccination.due_date
                                             )
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Status:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Status:</strong>
+                          ${escapeHtml(
                                             vaccination.status ||
                                             "Not provided"
                                         )}
-                      </p>
+                        </p>
 
-                      ${vaccination.notes
+                        ${vaccination.notes
                                                 ? `
                         <p>
                           <strong>Notes:</strong>
@@ -937,10 +980,10 @@ export async function GET(request) {
                                                     vaccination.notes
                                                 )}
                         </p>
-                      `
+                        `
                                                 : ""
                                             }
-                    `,
+                      `,
                                     },
 
                                     pushTitle:
@@ -1011,32 +1054,44 @@ export async function GET(request) {
                         error:
                         medicationError,
                     } = await supabaseAdmin
-                        .from("medications")
+                        .from(
+                            "medications"
+                        )
                         .select(
                             `
-                id,
-                dog_id,
-                name,
-                schedule,
-                duration,
-                notes
-              `
+                            id,
+                            dog_id,
+                            name,
+                            schedule,
+                            duration,
+                            notes,
+                            created_at
+                        `
                         )
-                        .eq("dog_id", dog.id)
+                        .eq(
+                            "dog_id",
+                            dog.id
+                        )
                         .order(
                             "created_at",
                             {
-                                ascending: false,
+                                ascending:
+                                    false,
                             }
                         );
 
-                    if (medicationError) {
+                    if (
+                        medicationError
+                    ) {
                         errors.push(
                             `Medications for ${dog.name}: ${medicationError.message}`
                         );
                     } else {
-                        for (const medication of
-                            medications || []) {
+                        for (
+                            const medication of
+                            medications ||
+                            []
+                        ) {
                             if (
                                 !medication.schedule
                             ) {
@@ -1045,15 +1100,6 @@ export async function GET(request) {
 
                             const type =
                                 "medication_reminder";
-
-                            const yesterday =
-                                new Date(
-                                    now.getTime() -
-                                    24 *
-                                    60 *
-                                    60 *
-                                    1000
-                                );
 
                             const {
                                 data: recentLogs,
@@ -1064,7 +1110,9 @@ export async function GET(request) {
                                     .from(
                                         "notification_logs"
                                     )
-                                    .select("id")
+                                    .select(
+                                        "id"
+                                    )
                                     .eq(
                                         "owner_id",
                                         dog.owner_id
@@ -1085,9 +1133,13 @@ export async function GET(request) {
                                         "sent_at",
                                         yesterday.toISOString()
                                     )
-                                    .limit(1);
+                                    .limit(
+                                        1
+                                    );
 
-                            if (recentLogError) {
+                            if (
+                                recentLogError
+                            ) {
                                 errors.push(
                                     `Medication log for ${dog.name}: ${recentLogError.message}`
                                 );
@@ -1096,8 +1148,10 @@ export async function GET(request) {
                             }
 
                             if (
-                                (recentLogs || [])
-                                    .length > 0
+                                (
+                                    recentLogs ||
+                                    []
+                                ).length > 0
                             ) {
                                 skipped++;
                                 continue;
@@ -1109,12 +1163,6 @@ export async function GET(request) {
                                     email,
                                     dog,
 
-                                    notificationType:
-                                        type,
-
-                                    referenceId:
-                                        medication.id,
-
                                     emailData: {
                                         subject:
                                             `💊 Medication Reminder — ${dog.name}`,
@@ -1123,21 +1171,21 @@ export async function GET(request) {
                                             "💊 Medication Reminder",
 
                                         content: `
-                      <p>
-                        <strong>Medication:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Medication:</strong>
+                          ${escapeHtml(
                                             medication.name
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Schedule:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Schedule:</strong>
+                          ${escapeHtml(
                                             medication.schedule
                                         )}
-                      </p>
+                        </p>
 
-                      ${medication.duration
+                        ${medication.duration
                                                 ? `
                         <p>
                           <strong>Duration:</strong>
@@ -1145,11 +1193,11 @@ export async function GET(request) {
                                                     medication.duration
                                                 )}
                         </p>
-                      `
+                        `
                                                 : ""
                                             }
 
-                      ${medication.notes
+                        ${medication.notes
                                                 ? `
                         <p>
                           <strong>Notes:</strong>
@@ -1157,10 +1205,10 @@ export async function GET(request) {
                                                     medication.notes
                                                 )}
                         </p>
-                      `
+                        `
                                                 : ""
                                             }
-                    `,
+                      `,
                                     },
 
                                     pushTitle:
@@ -1231,31 +1279,44 @@ export async function GET(request) {
                         .from("routines")
                         .select(
                             `
-                id,
-                dog_id,
-                title,
-                time_of_day,
-                routine_type,
-                frequency,
-                active
-              `
+                            id,
+                            dog_id,
+                            title,
+                            time_of_day,
+                            routine_type,
+                            frequency,
+                            active,
+                            created_at
+                        `
                         )
-                        .eq("dog_id", dog.id)
-                        .eq("active", true)
+                        .eq(
+                            "dog_id",
+                            dog.id
+                        )
+                        .eq(
+                            "active",
+                            true
+                        )
                         .order(
                             "time_of_day",
                             {
-                                ascending: true,
+                                ascending:
+                                    true,
                             }
                         );
 
-                    if (routineError) {
+                    if (
+                        routineError
+                    ) {
                         errors.push(
                             `Routines for ${dog.name}: ${routineError.message}`
                         );
                     } else {
-                        for (const routine of
-                            routines || []) {
+                        for (
+                            const routine of
+                            routines ||
+                            []
+                        ) {
                             if (
                                 !routine.time_of_day
                             ) {
@@ -1268,9 +1329,6 @@ export async function GET(request) {
                                     "Daily"
                                 ).toLowerCase();
 
-                            // Daily routines run every day.
-                            // Weekly routines run once per week.
-                            // Monthly routines run once per month.
                             let shouldRun =
                                 frequency ===
                                 "daily";
@@ -1282,8 +1340,7 @@ export async function GET(request) {
                                 shouldRun =
                                     now.getDay() ===
                                     new Date(
-                                        routine.created_at ||
-                                        now
+                                        routine.created_at
                                     ).getDay();
                             }
 
@@ -1294,8 +1351,7 @@ export async function GET(request) {
                                 shouldRun =
                                     now.getDate() ===
                                     new Date(
-                                        routine.created_at ||
-                                        now
+                                        routine.created_at
                                     ).getDate();
                             }
 
@@ -1303,23 +1359,13 @@ export async function GET(request) {
                                 frequency ===
                                 "as needed"
                             ) {
-                                shouldRun = false;
+                                shouldRun =
+                                    false;
                             }
 
                             if (!shouldRun) {
                                 continue;
                             }
-
-                            // One routine reminder per routine
-                            // during each 24-hour period.
-                            const yesterday =
-                                new Date(
-                                    now.getTime() -
-                                    24 *
-                                    60 *
-                                    60 *
-                                    1000
-                                );
 
                             const type =
                                 "routine_reminder";
@@ -1333,7 +1379,9 @@ export async function GET(request) {
                                     .from(
                                         "notification_logs"
                                     )
-                                    .select("id")
+                                    .select(
+                                        "id"
+                                    )
                                     .eq(
                                         "owner_id",
                                         dog.owner_id
@@ -1354,7 +1402,9 @@ export async function GET(request) {
                                         "sent_at",
                                         yesterday.toISOString()
                                     )
-                                    .limit(1);
+                                    .limit(
+                                        1
+                                    );
 
                             if (
                                 recentRoutineLogError
@@ -1367,8 +1417,10 @@ export async function GET(request) {
                             }
 
                             if (
-                                (recentLogs || [])
-                                    .length > 0
+                                (
+                                    recentLogs ||
+                                    []
+                                ).length > 0
                             ) {
                                 skipped++;
                                 continue;
@@ -1380,12 +1432,6 @@ export async function GET(request) {
                                     email,
                                     dog,
 
-                                    notificationType:
-                                        type,
-
-                                    referenceId:
-                                        routine.id,
-
                                     emailData: {
                                         subject:
                                             `🐾 Routine Reminder — ${dog.name}`,
@@ -1394,36 +1440,36 @@ export async function GET(request) {
                                             "🐾 Dog Routine Reminder",
 
                                         content: `
-                      <p>
-                        <strong>Routine:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Routine:</strong>
+                          ${escapeHtml(
                                             routine.title
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Time:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Time:</strong>
+                          ${escapeHtml(
                                             routine.time_of_day
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Type:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Type:</strong>
+                          ${escapeHtml(
                                             routine.routine_type ||
                                             "General care"
                                         )}
-                      </p>
+                        </p>
 
-                      <p>
-                        <strong>Frequency:</strong>
-                        ${escapeHtml(
+                        <p>
+                          <strong>Frequency:</strong>
+                          ${escapeHtml(
                                             routine.frequency ||
                                             "Daily"
                                         )}
-                      </p>
-                    `,
+                        </p>
+                      `,
                                     },
 
                                     pushTitle:
