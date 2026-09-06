@@ -69,6 +69,9 @@ export default function DogProfile() {
   const [medicationReminders, setMedicationReminders] =
     useState(false);
 
+  const [routineReminders, setRoutineReminders] =
+    useState(false);
+
   // -----------------------------
   // LOAD DOG
   // -----------------------------
@@ -228,6 +231,12 @@ export default function DogProfile() {
         setMedicationReminders(
           Boolean(
             preferences.medication_reminders
+          )
+        );
+
+        setRoutineReminders(
+          Boolean(
+            preferences.routine_reminders
           )
         );
       }
@@ -456,67 +465,40 @@ export default function DogProfile() {
       const preferences = {
         user_id: user.id,
         dog_id: dog.id,
+
         email_notifications:
           emailNotifications,
+
         push_notifications:
           pushNotifications,
+
         appointment_reminders:
           appointmentReminders,
+
         vaccination_reminders:
           vaccinationReminders,
+
         medication_reminders:
           medicationReminders,
+
+        routine_reminders:
+          routineReminders,
+
         updated_at:
           new Date().toISOString(),
       };
 
-      // Find the existing preference row
-      // using the UNIQUE user_id column.
-      const {
-        data: existingPreference,
-        error: findError,
-      } = await sb
+      const { error } = await sb
         .from("notification_preferences")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (findError) {
-        throw new Error(
-          findError.message
+        .upsert(
+          preferences,
+          {
+            onConflict: "dog_id",
+          }
         );
-      }
 
-      // UPDATE existing row
-      if (existingPreference) {
-        const {
-          error: updateError,
-        } = await sb
-          .from("notification_preferences")
-          .update(preferences)
-          .eq(
-            "id",
-            existingPreference.id
-          );
-
-        if (updateError) {
-          throw new Error(
-            updateError.message
-          );
-        }
-      } else {
-        // INSERT new row
-        const {
-          error: insertError,
-        } = await sb
-          .from("notification_preferences")
-          .insert(preferences);
-
-        if (insertError) {
-          throw new Error(
-            insertError.message
-          );
-        }
+      if (error) {
+        throw new Error(error.message);
       }
 
       setNotificationMsg(
@@ -529,7 +511,7 @@ export default function DogProfile() {
       );
 
       setNotificationMsg(
-        error?.message ||
+        error.message ||
         "Unable to save notification settings."
       );
     } finally {
@@ -661,6 +643,7 @@ export default function DogProfile() {
       </>
     );
   }
+
   // -----------------------------
   // PAGE
   // -----------------------------
@@ -933,9 +916,7 @@ export default function DogProfile() {
               )}
             </>
           ) : (
-            /* =========================
-               EDIT FORM
-            ========================= */
+            /* EDIT FORM */
 
             <form
               className="form"
@@ -944,7 +925,6 @@ export default function DogProfile() {
                 marginTop: "20px",
               }}
             >
-
               {/* BASIC */}
 
               <label>
@@ -1193,10 +1173,8 @@ export default function DogProfile() {
                   Cancel
                 </button>
               </div>
-
             </form>
           )}
-
         </section>
 
         <br />
@@ -1270,7 +1248,6 @@ export default function DogProfile() {
                   "1px solid #f5c451",
               }}
             >
-
               <h3>
                 🔒 Premium Feature
               </h3>
@@ -1278,8 +1255,9 @@ export default function DogProfile() {
               <p className="muted">
                 Premium customers can
                 choose email, push,
-                appointment, vaccination
-                and medication notifications.
+                appointment, vaccination,
+                medication and routine
+                notifications.
               </p>
 
               <button
@@ -1289,10 +1267,10 @@ export default function DogProfile() {
               >
                 ⭐ Upgrade to Premium →
               </button>
-
             </div>
           ) : (
             <>
+
               <p className="muted">
                 Choose which notifications
                 you want to receive for
@@ -1309,7 +1287,6 @@ export default function DogProfile() {
                     "#f7fbff",
                 }}
               >
-
                 <h3>
                   📧 Email Notifications
                 </h3>
@@ -1322,7 +1299,6 @@ export default function DogProfile() {
                     cursor: "pointer",
                   }}
                 >
-
                   <input
                     type="checkbox"
                     checked={
@@ -1336,7 +1312,6 @@ export default function DogProfile() {
                   />
 
                   Enable email notifications
-
                 </label>
 
                 <p className="muted">
@@ -1344,7 +1319,6 @@ export default function DogProfile() {
                   dog-care notifications
                   by email.
                 </p>
-
               </div>
 
               {/* PUSH */}
@@ -1357,7 +1331,6 @@ export default function DogProfile() {
                     "#f7fbff",
                 }}
               >
-
                 <h3>
                   📱 Push Notifications
                 </h3>
@@ -1370,7 +1343,6 @@ export default function DogProfile() {
                     cursor: "pointer",
                   }}
                 >
-
                   <input
                     type="checkbox"
                     checked={
@@ -1384,9 +1356,7 @@ export default function DogProfile() {
                   />
 
                   Enable push notifications
-
                 </label>
-
               </div>
 
               {/* APPOINTMENTS */}
@@ -1399,7 +1369,6 @@ export default function DogProfile() {
                     "#f7fbff",
                 }}
               >
-
                 <h3>
                   📅 Appointment Reminders
                 </h3>
@@ -1412,7 +1381,6 @@ export default function DogProfile() {
                     cursor: "pointer",
                   }}
                 >
-
                   <input
                     type="checkbox"
                     checked={
@@ -1426,9 +1394,7 @@ export default function DogProfile() {
                   />
 
                   Appointment reminders
-
                 </label>
-
               </div>
 
               {/* VACCINATIONS */}
@@ -1441,7 +1407,6 @@ export default function DogProfile() {
                     "#f7fbff",
                 }}
               >
-
                 <h3>
                   💉 Vaccination Reminders
                 </h3>
@@ -1454,7 +1419,6 @@ export default function DogProfile() {
                     cursor: "pointer",
                   }}
                 >
-
                   <input
                     type="checkbox"
                     checked={
@@ -1468,9 +1432,7 @@ export default function DogProfile() {
                   />
 
                   Vaccination reminders
-
                 </label>
-
               </div>
 
               {/* MEDICATIONS */}
@@ -1483,7 +1445,6 @@ export default function DogProfile() {
                     "#f7fbff",
                 }}
               >
-
                 <h3>
                   💊 Medication Reminders
                 </h3>
@@ -1496,7 +1457,6 @@ export default function DogProfile() {
                     cursor: "pointer",
                   }}
                 >
-
                   <input
                     type="checkbox"
                     checked={
@@ -1510,9 +1470,50 @@ export default function DogProfile() {
                   />
 
                   Medication reminders
+                </label>
+              </div>
 
+              {/* ROUTINES */}
+
+              <div
+                className="card"
+                style={{
+                  marginTop: "12px",
+                  background:
+                    "#f7fbff",
+                }}
+              >
+                <h3>
+                  🐾 Routine Reminders
+                </h3>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      routineReminders
+                    }
+                    onChange={(e) =>
+                      setRoutineReminders(
+                        e.target.checked
+                      )
+                    }
+                  />
+
+                  Routine reminders
                 </label>
 
+                <p className="muted">
+                  Receive reminders for
+                  active daily dog routines.
+                </p>
               </div>
 
               {/* SAVE */}
@@ -1581,9 +1582,9 @@ export default function DogProfile() {
                   marginTop: "16px",
                 }}
               >
-                ℹ️ Premium email reminders are
-                active for appointments,
-                vaccinations, and medications.
+                ℹ️ Your notification
+                preferences control which
+                Premium reminders you receive.
               </p>
 
             </>
@@ -1612,7 +1613,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               ❤️ Health
             </h2>
@@ -1625,7 +1625,6 @@ export default function DogProfile() {
             <span className="pill">
               View health records →
             </span>
-
           </div>
 
           {/* WEIGHT */}
@@ -1641,7 +1640,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               ⚖️ Weight
             </h2>
@@ -1654,7 +1652,6 @@ export default function DogProfile() {
             <span className="pill">
               View weight history →
             </span>
-
           </div>
 
           {/* VACCINATIONS */}
@@ -1670,7 +1667,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               💉 Vaccinations
             </h2>
@@ -1683,7 +1679,6 @@ export default function DogProfile() {
             <span className="pill">
               View vaccinations →
             </span>
-
           </div>
 
           {/* MEDICATIONS */}
@@ -1699,7 +1694,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               💊 Medications
             </h2>
@@ -1712,7 +1706,6 @@ export default function DogProfile() {
             <span className="pill">
               View medications →
             </span>
-
           </div>
 
           {/* ROUTINES */}
@@ -1728,7 +1721,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               🔄 Routines
             </h2>
@@ -1741,7 +1733,6 @@ export default function DogProfile() {
             <span className="pill">
               View routines →
             </span>
-
           </div>
 
           {/* APPOINTMENTS */}
@@ -1757,7 +1748,6 @@ export default function DogProfile() {
               cursor: "pointer",
             }}
           >
-
             <h2>
               📅 Appointments
             </h2>
@@ -1770,7 +1760,6 @@ export default function DogProfile() {
             <span className="pill">
               View appointments →
             </span>
-
           </div>
 
         </section>
